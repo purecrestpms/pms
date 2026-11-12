@@ -58,7 +58,18 @@ CREATE TABLE IF NOT EXISTS guests (
   phone TEXT,
   country TEXT,
   notes TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  vip INTEGER NOT NULL DEFAULT 0,
+  company TEXT,
+  address TEXT,
+  city TEXT,
+  id_type TEXT,
+  id_number TEXT,
+  birth_date TEXT,
+  preferences TEXT,
+  marketing_opt_in INTEGER NOT NULL DEFAULT 0,
+  blacklisted INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT
 );
 CREATE TABLE IF NOT EXISTS channels (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -120,7 +131,21 @@ CREATE TABLE IF NOT EXISTS payments (
   method TEXT NOT NULL DEFAULT 'card',
   reference TEXT,
   created_by INTEGER REFERENCES users(id),
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  shift_id INTEGER REFERENCES shifts(id)
+);
+CREATE TABLE IF NOT EXISTS shifts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  opened_at TEXT NOT NULL,
+  closed_at TEXT,
+  opening_float REAL NOT NULL DEFAULT 0,
+  counted_cash REAL,
+  expected_cash REAL,
+  variance REAL,
+  notes TEXT,
+  closing_notes TEXT,
+  status TEXT NOT NULL DEFAULT 'open'
 );
 CREATE TABLE IF NOT EXISTS calendar_blocks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -150,6 +175,10 @@ CREATE INDEX IF NOT EXISTS idx_res_room ON reservations (room_id);
 CREATE INDEX IF NOT EXISTS idx_blocks_dates ON calendar_blocks (start_date, end_date);
 CREATE INDEX IF NOT EXISTS idx_blocks_feed ON calendar_blocks (feed_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id);
+CREATE INDEX IF NOT EXISTS idx_shifts_status ON shifts (status);
+CREATE INDEX IF NOT EXISTS idx_shifts_user ON shifts (user_id);
+CREATE INDEX IF NOT EXISTS idx_guests_name ON guests (last_name, first_name);
+CREATE INDEX IF NOT EXISTS idx_payments_shift ON payments (shift_id);
 `;
 
 function normalizeParams(params = []) {
@@ -283,6 +312,7 @@ export async function initDb() {
   db.run('PRAGMA foreign_keys = ON;');
   db.run(SCHEMA);
   seedIfEmpty();
+  migrate();
   persist();
   return db;
 }
@@ -307,13 +337,20 @@ function seedIfEmpty() {
   const today = todayISO();
 
   const settings = {
-    property_name: 'Harbor View Hotel',
+    property_name: 'PCH Hotel',
     property_address: '12 Marina Parade, Lisbon, Portugal',
     property_phone: '+351 210 000 000',
+    property_email: 'stay@pchhotel.example',
     currency: 'EUR',
     check_in_time: '15:00',
     check_out_time: '11:00',
-    timezone: 'Europe/Lisbon'
+    timezone: 'Europe/Lisbon',
+    site_headline: 'Boutique stays, booked direct',
+    site_tagline: 'Best available rate, instant confirmation and no booking fees.',
+    site_about:
+      'PCH Hotel sits two minutes from the marina, with 11 individually styled rooms, a rooftop terrace and breakfast served until noon. Book direct for the lowest rate and a free upgrade when available.',
+    site_notice: 'Free cancellation up to 48 hours before arrival.',
+    site_accent: '#0f766e'
   };
   for (const [key, value] of Object.entries(settings)) {
     run('insert or ignore into settings (key, value) values (?, ?)', [key, value]);
@@ -340,6 +377,7 @@ function seedIfEmpty() {
 
   const channels = [
     ['Direct', 'direct', '#0ea5e9', 0],
+    ['PCH Website', 'website', '#0f766e', 0],
     ['Booking.com', 'ota', '#1d4ed8', 15],
     ['Airbnb', 'ota', '#e11d48', 3],
     ['Expedia', 'ota', '#f59e0b', 18],
@@ -448,6 +486,25 @@ function seedIfEmpty() {
   const g5 = guest('Marco', 'Rossi', 'marco.rossi@example.com', '+39 333 887 2211', 'Italy');
   const g6 = guest('Ana', 'Costa', 'ana.costa@example.com', '+351 934 771 220', 'Portugal');
 
+  run(
+    `update guests set vip = 1, company = 'Nordwind Travel', address = 'Hafenstrasse 22', city = 'Hamburg',
+      id_type = 'Passport', id_number = 'DE-C23X9911', birth_date = '1984-06-12', marketing_opt_in = 1,
+      preferences = 'High floor, extra pillows, late checkout' where id = ?`,
+    [g1]
+  );
+  run(
+    `update guests set company = 'Lisboa Tech', address = 'Rua do Alecrim 4', city = 'Lisbon', id_type = 'ID card',
+      id_number = 'PT-1188223', birth_date = '1990-02-27' where id = ?`,
+    [g2]
+  );
+  run(
+    `update guests set vip = 1, company = 'Kyoto Imports', address = '3-14 Kawaramachi', city = 'Kyoto',
+      id_type = 'Passport', id_number = 'JP-TK7781', birth_date = '1979-11-03',
+      preferences = 'Twin beds, quiet room, green tea' where id = ?`,
+    [g4]
+  );
+  run("update guests set preferences = 'Cot for a toddler, early breakfast' where id = ?", [g6]);
+
   reservation({ guestId: g1, typeId: 1, roomNumber: '101', from: -1, to: 2, status: 'checked_in', channelId: 2, ref: 'BK-88213', rate: 120 });
   reservation({ guestId: g2, typeId: 2, roomNumber: '201', from: 0, to: 3, status: 'confirmed', channelId: 1, ref: null, rate: 165 });
   reservation({ guestId: g3, typeId: 3, roomNumber: '104', from: 0, to: 1, status: 'confirmed', channelId: 3, ref: 'ABNB-4471', rate: 110 });
@@ -482,6 +539,21 @@ function seedIfEmpty() {
 
   run('update rooms set status = ? where number = ?', ['out_of_order', '106']);
 
+  const shiftOpenAt = new Date(Date.now() - 26 * 3600 * 1000).toISOString();
+  const shiftCloseAt = new Date(Date.now() - 14 * 3600 * 1000).toISOString();
+  run(
+    `insert into shifts (user_id, opened_at, closed_at, opening_float, counted_cash, expected_cash, variance, notes, closing_notes, status)
+     values (?,?,?,?,?,?,?,?,?,?)`,
+    [2, shiftOpenAt, shiftCloseAt, 200, 320, 320, 0, 'Morning shift', 'Draw balanced at handover', 'closed']
+  );
+  run('insert into shifts (user_id, opened_at, opening_float, notes, status) values (?,?,?,?,?)', [
+    1,
+    new Date(Date.now() - 3 * 3600 * 1000).toISOString(),
+    250,
+    'Day shift',
+    'open'
+  ]);
+
   const activity = [
     [1, 'setup', 'Property created with 11 rooms and 4 room types'],
     [2, 'check_in', 'Checked in Emma Schneider to room 101'],
@@ -492,4 +564,55 @@ function seedIfEmpty() {
   }
 
   console.log('[db] seeded demo property, staff accounts, rooms and reservations');
+}
+
+/* ------------------------------ migrations ------------------------------ */
+
+const GUEST_EXTRA_COLUMNS = [
+  ['vip', 'INTEGER NOT NULL DEFAULT 0'],
+  ['company', 'TEXT'],
+  ['address', 'TEXT'],
+  ['city', 'TEXT'],
+  ['id_type', 'TEXT'],
+  ['id_number', 'TEXT'],
+  ['birth_date', 'TEXT'],
+  ['preferences', 'TEXT'],
+  ['marketing_opt_in', 'INTEGER NOT NULL DEFAULT 0'],
+  ['blacklisted', 'INTEGER NOT NULL DEFAULT 0'],
+  ['updated_at', 'TEXT']
+];
+
+function migrate() {
+  const guestColumns = new Set(all('PRAGMA table_info(guests)').map((row) => row.name));
+  for (const [name, definition] of GUEST_EXTRA_COLUMNS) {
+    if (!guestColumns.has(name)) exec(`ALTER TABLE guests ADD COLUMN ${name} ${definition}`);
+  }
+
+  const paymentColumns = new Set(all('PRAGMA table_info(payments)').map((row) => row.name));
+  if (!paymentColumns.has('shift_id')) exec('ALTER TABLE payments ADD COLUMN shift_id INTEGER');
+
+  run(
+    "update settings set value = 'PCH Hotel' where key = 'property_name' and value in ('Harbor View Hotel', 'AppJet Hotel')"
+  );
+
+  const siteDefaults = {
+    site_headline: 'Boutique stays, booked direct',
+    site_tagline: 'Best available rate, instant confirmation and no booking fees.',
+    site_about:
+      'PCH Hotel sits two minutes from the marina, with 11 individually styled rooms, a rooftop terrace and breakfast served until noon. Book direct for the lowest rate and a free upgrade when available.',
+    site_notice: 'Free cancellation up to 48 hours before arrival.',
+    site_accent: '#0f766e'
+  };
+  for (const [key, value] of Object.entries(siteDefaults)) {
+    run('insert or ignore into settings (key, value) values (?, ?)', [key, value]);
+  }
+
+  run(
+    `insert into channels (name, kind, color, commission, active)
+     select 'PCH Website', 'website', '#0f766e', 0, 1
+     where not exists (select 1 from channels where kind = 'website')`
+  );
+
+  run("update users set name = 'PCH Admin' where email like 'admin@%' and name in ('Hotel Admin', 'AppJet Admin')");
+  exec('PRAGMA foreign_keys = ON');
 }
