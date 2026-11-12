@@ -14,6 +14,7 @@ import {
   userFromRequest
 } from './session.js';
 import { todayISO, addDays, isISODate, nights, eachDate, money, code, weekdayShort } from './util.js';
+import { folioPdf, registrationPdf, sendPdf, shiftReportPdf } from './pdf.js';
 import { parseIcalEvents, buildIcal, fetchIcal } from './ical.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -833,6 +834,351 @@ export function createApp() {
       res.json({ ok: true });
     })
   );
+
+  /* ------------------------------- shifts ------------------------------- */
+  function openShiftFor(userId) {
+    return get("select * from shifts where user_id = ? and status = 'open' order by id desc limit 1", [userId]);
+  }
+
+  function shiftPayments(shift) {
+    return all(
+      `select p.*, r.code as reservation_code, (g.first_name || ' ' || g.last_name) as guest_name
+       from payments p
+       join reservations r on r.id = p.reservation_id
+       join guests g on g.id = r.guest_id
+       where p.shift_id = ?
+          or (p.shift_id is null and p.created_at >= ? and (? is null or p.created_at <= ?))
+       order by p.created_at`,
+      [shift.id, shift.opened_at, shift.closed_at, shift.closed_at]
+    );
+  }
+
+  function shiftTotals(shift) {
+    const payments = shiftPayments(shift);
+    const byMethod = new Map();
+    for (const payment of payments) {
+      const key = String(payment.method || 'card');
+      const entry = byMethod.get(key) || { method: key, count: 0, total: 0 };
+      entry.count += 1;
+      entry.total = money(entry.total + Number(payment.amount || 0));
+      byMethod.set(key, entry);
+    }
+    const cashTotal = money((byMethod.get('cash') || {}).total || 0);
+    const paymentsTotal = money(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
+    const expectedCash = money(Number(shift.opening_float || 0) + cashTotal);
+    const countedCash =
+      shift.counted_cash === null || shift.counted_cash === undefined ? null : money(shift.counted_cash);
+    return {
+      payments,
+      payment_count: payments.length,
+      by_method: [...byMethod.values()].sort((a, b) => b.total - a.total),
+      payments_total: paymentsTotal,
+      cash_total: cashTotal,
+      opening_float: money(shift.opening_float || 0),
+      expected_cash: expectedCash,
+      counted_cash: countedCash,
+      variance: countedCash === null ? null : money(countedCash - expectedCash)
+    };
+  }
+
+  function shiftRow(shift) {
+    if (!shift) return null;
+    const cashier = get('select name from users where id = ?', [shift.user_id]);
+    return { ...shift, cashier_name: cashier ? cashier.name : 'Unknown', totals: shiftTotals(shift) };
+  }
+
+  app.get('/api/shifts', requireAuth, (req, res) => {
+    const current = openShiftFor(req.user.id);
+    res.json({
+      shifts: all('select * from shifts order by id desc limit 40').map(shiftRow),
+      current: current ? shiftRow(current) : null
+    });
+  });
+
+  app.get('/api/shifts/current', requireAuth, (req, res) => {
+    const current = openShiftFor(req.user.id);
+    res.json({ shift: current ? shiftRow(current) : null });
+  });
+
+  app.post(
+    '/api/shifts/open',
+    requireAuth,
+    requireRole('admin', 'manager', 'front_desk'),
+    wrap(async (req, res) => {
+      if (openShiftFor(req.user.id)) throw httpError(409, 'You already have an open shift. Close it before opening a new one.');
+      const raw = req.body?.opening_float;
+      const openingFloat = raw === undefined || raw === null || raw === '' ? 0 : Number(raw);
+      if (!Number.isFinite(openingFloat) || openingFloat < 0) {
+        throw httpError(400, 'Opening float must be zero or a positive number');
+      }
+      const created = run('insert into shifts (user_id, opened_at, opening_float, notes, status) values (?,?,?,?,?)', [
+        req.user.id,
+        new Date().toISOString(),
+        money(openingFloat),
+        String(req.body?.notes || '').trim() || null,
+        'open'
+      ]);
+      logActivity(req.user.id, 'shift', `Opened shift #${created.id} with a ${money(openingFloat)} float`);
+      res.status(201).json({ shift: shiftRow(get('select * from shifts where id = ?', [created.id])) });
+    })
+  );
+
+  app.post(
+    '/api/shifts/:id/close',
+    requireAuth,
+    requireRole('admin', 'manager', 'front_desk'),
+    wrap(async (req, res) => {
+      const id = Number(req.params.id);
+      const shift = get('select * from shifts where id = ?', [id]);
+      if (!shift) throw httpError(404, 'Shift not found');
+      if (shift.status !== 'open') throw httpError(409, 'This shift is already closed');
+      if (shift.user_id !== req.user.id && !['admin', 'manager'].includes(req.user.role)) {
+        throw httpError(403, 'Only the cashier or a manager can close this shift');
+      }
+      const raw = req.body?.counted_cash;
+      let countedCash = null;
+      if (raw !== undefined && raw !== null && raw !== '') {
+        const value = Number(raw);
+        if (!Number.isFinite(value) || value < 0) throw httpError(400, 'Counted cash must be zero or a positive number');
+        countedCash = money(value);
+      }
+      const totals = shiftTotals(shift);
+      const variance = countedCash === null ? null : money(countedCash - totals.expected_cash);
+      run(
+        `update shifts set closed_at = ?, counted_cash = ?, expected_cash = ?, variance = ?, closing_notes = ?, status = ?
+         where id = ?`,
+        [
+          new Date().toISOString(),
+          countedCash,
+          totals.expected_cash,
+          variance,
+          String(req.body?.closing_notes || '').trim() || null,
+          'closed',
+          id
+        ]
+      );
+      logActivity(
+        req.user.id,
+        'shift',
+        `Closed shift #${id}${variance === null ? '' : ` with a ${money(variance)} variance`}`
+      );
+      res.json({ shift: shiftRow(get('select * from shifts where id = ?', [id])) });
+    })
+  );
+
+  app.get('/api/shifts/:id/report.pdf', requireAuth, (req, res) => {
+    const shift = get('select * from shifts where id = ?', [Number(req.params.id)]);
+    if (!shift) throw httpError(404, 'Shift not found');
+    const cashier = get('select name from users where id = ?', [shift.user_id]);
+    const totals = shiftTotals(shift);
+    sendPdf(
+      res,
+      `shift-${shift.id}-report.pdf`,
+      shiftReportPdf({ property: readSettings(), shift, cashier: cashier?.name, totals, payments: totals.payments })
+    );
+  });
+
+  /* ------------------------------ documents ------------------------------ */
+  app.get('/api/reservations/:id/folio.pdf', requireAuth, (req, res) => {
+    const id = Number(req.params.id);
+    const row = reservationRow(get(`${RES_SELECT} where r.id = ?`, [id]));
+    if (!row) throw httpError(404, 'Reservation not found');
+    const charges = all('select * from charges where reservation_id = ? order by id', [id]);
+    const payments = all('select * from payments where reservation_id = ? order by id', [id]);
+    sendPdf(res, `folio-${row.code}.pdf`, folioPdf({ property: readSettings(), reservation: row, charges, payments }));
+  });
+
+  app.get('/api/reservations/:id/registration.pdf', requireAuth, (req, res) => {
+    const id = Number(req.params.id);
+    const row = reservationRow(get(`${RES_SELECT} where r.id = ?`, [id]));
+    if (!row) throw httpError(404, 'Reservation not found');
+    const guest = get('select * from guests where id = ?', [row.guest_id]);
+    sendPdf(
+      res,
+      `registration-${row.code}.pdf`,
+      registrationPdf({ property: readSettings(), reservation: row, guest })
+    );
+  });
+
+  /* ---------------------------- public booking ---------------------------- */
+  const bookingHits = new Map();
+
+  function bookingRateLimit(req, res, next) {
+    const key = req.ip || 'unknown';
+    const now = Date.now();
+    if (bookingHits.size > 4000) bookingHits.clear();
+    const entry = bookingHits.get(key) || { count: 0, reset: now + 3600000 };
+    if (now > entry.reset) {
+      entry.count = 0;
+      entry.reset = now + 3600000;
+    }
+    entry.count += 1;
+    bookingHits.set(key, entry);
+    if (entry.count > 40) {
+      return res.status(429).json({ error: 'Too many booking attempts from this connection. Please try again later.' });
+    }
+    return next();
+  }
+
+  function publicProperty() {
+    const settings = readSettings();
+    return {
+      name: settings.property_name || 'PCH Hotel',
+      address: settings.property_address || '',
+      phone: settings.property_phone || '',
+      email: settings.property_email || '',
+      currency: settings.currency || 'EUR',
+      check_in_time: settings.check_in_time || '15:00',
+      check_out_time: settings.check_out_time || '11:00',
+      headline: settings.site_headline || 'Boutique stays, booked direct',
+      tagline: settings.site_tagline || '',
+      about: settings.site_about || '',
+      notice: settings.site_notice || '',
+      accent: settings.site_accent || '#0f766e'
+    };
+  }
+
+  app.get('/api/public/property', (req, res) => {
+    const roomTypes = all(
+      `select rt.*, (select count(*) from rooms rm where rm.room_type_id = rt.id and rm.active = 1) as room_count
+       from room_types rt order by rt.base_rate`
+    );
+    res.json({ property: publicProperty(), room_types: roomTypes });
+  });
+
+  app.get('/api/public/availability', (req, res) => {
+    const checkIn = String(req.query.check_in || '');
+    const checkOut = String(req.query.check_out || '');
+    if (!isISODate(checkIn) || !isISODate(checkOut)) {
+      return res.status(400).json({ error: 'Choose an arrival and departure date' });
+    }
+    if (checkIn >= checkOut) return res.status(400).json({ error: 'Departure must be after arrival' });
+    if (checkIn < todayISO()) return res.status(400).json({ error: 'Arrival cannot be in the past' });
+    const stayNights = nights(checkIn, checkOut);
+    if (stayNights > 30) return res.status(400).json({ error: 'Online bookings are limited to 30 nights' });
+    const adults = Math.min(Math.max(Number(req.query.adults) || 2, 1), 8);
+    const settings = readSettings();
+    const roomTypes = all('select * from room_types order by base_rate').map((type) => {
+      const available = availableCount(type.id, checkIn, checkOut);
+      const nightly = money(type.base_rate);
+      return {
+        id: type.id,
+        name: type.name,
+        code: type.code,
+        capacity: type.capacity,
+        description: type.description,
+        nightly_rate: nightly,
+        total_price: money(nightly * stayNights),
+        available,
+        fits: available > 0 && Number(type.capacity || 2) >= adults
+      };
+    });
+    res.json({
+      check_in: checkIn,
+      check_out: checkOut,
+      nights: stayNights,
+      adults,
+      currency: settings.currency || 'EUR',
+      room_types: roomTypes
+    });
+  });
+
+  app.post(
+    '/api/public/bookings',
+    bookingRateLimit,
+    wrap(async (req, res) => {
+      const body = req.body || {};
+      const checkIn = String(body.check_in || '');
+      const checkOut = String(body.check_out || '');
+      validateStay(checkIn, checkOut);
+      if (checkIn < todayISO()) throw httpError(400, 'Arrival cannot be in the past');
+      const stayNights = nights(checkIn, checkOut);
+      if (stayNights > 30) throw httpError(400, 'Online bookings are limited to 30 nights');
+      const first = String(body.first_name || '').trim();
+      const last = String(body.last_name || '').trim();
+      const email = String(body.email || '').trim().toLowerCase();
+      if (!first || !last) throw httpError(400, 'Please enter your first and last name');
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw httpError(400, 'Please enter a valid email address');
+
+      const type = get('select * from room_types where id = ?', [Number(body.room_type_id)]);
+      if (!type) throw httpError(404, 'That room type is no longer available');
+      if (availableCount(type.id, checkIn, checkOut) <= 0) {
+        throw httpError(409, 'That room type is sold out for those dates');
+      }
+      const adults = Math.min(Math.max(Number(body.adults) || 2, 1), 8);
+      const children = Math.min(Math.max(Number(body.children) || 0, 0), 6);
+      if (Number(type.capacity || 2) < adults) throw httpError(400, 'That room type cannot host this many adults');
+
+      const now = new Date().toISOString();
+      let guest = get('select * from guests where lower(email) = ?', [email]);
+      if (guest) {
+        run('update guests set phone = coalesce(?, phone), country = coalesce(?, country), updated_at = ? where id = ?', [
+          String(body.phone || '').trim() || null,
+          String(body.country || '').trim() || null,
+          now,
+          guest.id
+        ]);
+      } else {
+        const created = run(
+          `insert into guests (first_name, last_name, email, phone, country, notes, marketing_opt_in, created_at, updated_at)
+           values (?,?,?,?,?,?,?,?,?)`,
+          [
+            first,
+            last,
+            email,
+            String(body.phone || '').trim() || null,
+            String(body.country || '').trim() || null,
+            'Created by the booking website',
+            body.marketing_opt_in ? 1 : 0,
+            now,
+            now
+          ]
+        );
+        guest = get('select * from guests where id = ?', [created.id]);
+      }
+
+      let reservationCode = null;
+      for (let attempt = 0; attempt < 6 && !reservationCode; attempt += 1) {
+        const candidate = `PCH-${Math.floor(Math.random() * 900000) + 100000}`;
+        if (!get('select id from reservations where code = ?', [candidate])) reservationCode = candidate;
+      }
+      if (!reservationCode) throw httpError(500, 'Could not allocate a booking reference. Please try again.');
+
+      const free = freeRooms(type.id, checkIn, checkOut);
+      const websiteChannel =
+        get("select id from channels where kind = 'website'") || get("select id from channels where kind = 'direct'");
+      const created = run(
+        `insert into reservations (code, guest_id, room_type_id, room_id, check_in, check_out, adults, children,
+          status, channel_id, rate, notes, created_by, created_at, updated_at)
+         values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [
+          reservationCode,
+          guest.id,
+          type.id,
+          free.length ? free[0].id : null,
+          checkIn,
+          checkOut,
+          adults,
+          children,
+          'confirmed',
+          websiteChannel ? websiteChannel.id : null,
+          money(type.base_rate),
+          'Booked on the hotel website',
+          null,
+          now,
+          now
+        ]
+      );
+      logActivity(null, 'booking', `Website booking ${reservationCode} for ${first} ${last}`);
+      res.status(201).json({ reservation: reservationRow(get(`${RES_SELECT} where r.id = ?`, [created.id])) });
+    })
+  );
+
+  app.get('/api/public/bookings/:code', (req, res) => {
+    const row = get(`${RES_SELECT} where upper(r.code) = upper(?)`, [String(req.params.code || '').trim()]);
+    if (!row) return res.status(404).json({ error: 'Booking not found' });
+    res.json({ reservation: reservationRow(row) });
+  });
 
   /* ---------------------------- reservations ---------------------------- */
   app.get('/api/reservations', requireAuth, (req, res) => {
