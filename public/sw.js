@@ -1,5 +1,5 @@
 /* PCH PMS service worker — offline shell only, never caches API data. */
-const CACHE = 'pch-pms-v1';
+const CACHE = 'pch-pms-v2';
 const PRECACHE = ['/', '/manifest.webmanifest', '/icon.svg', '/hero.svg'];
 
 self.addEventListener('install', (event) => {
@@ -30,11 +30,18 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put('/', copy)).catch(() => undefined);
+          // Never cache an error page (502/503 during a deploy) as the app shell.
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put('/', copy)).catch(() => undefined);
+          }
           return response;
         })
-        .catch(() => caches.match('/').then((cached) => cached || Response.error()))
+        .catch(() =>
+          caches
+            .match('/')
+            .then((cached) => (cached && cached.ok ? cached : Response.error()))
+        )
     );
     return;
   }
