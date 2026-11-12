@@ -19,7 +19,7 @@ let base;
 
 before(async () => {
   await initDb();
-  server = createApp().listen(0, '127.0.0.1');
+  server = createApp().listen(0, '0.0.0.0');
   await once(server, 'listening');
   base = `http://127.0.0.1:${server.address().port}`;
 });
