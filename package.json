@@ -1,0 +1,28 @@
+{
+  "name": "appjet-hotel-pms",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hotel property management system with front desk, housekeeping and iCal channel manager",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node server/index.js",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "test": "node --test tests/",
+    "check": "npm test && npm run build"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "sql.js": "^1.13.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.7"
+  }
+}
