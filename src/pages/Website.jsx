@@ -187,7 +187,7 @@ export default function Website() {
       {notice ? <div className="inline-ok">{notice}</div> : null}
       {error ? <div className="inline-error">{error}</div> : null}
 
-      {tab === 'copy' ? (
+      <div className="editor-section" id={`editor-copy`}>
         <div className="split-grid">
           <section className="card">
             <h3>Identity</h3>
@@ -283,9 +283,9 @@ export default function Website() {
             </div>
           </section>
         </div>
-      ) : null}
+      </div>
 
-      {tab === 'images' ? (
+      <div className="editor-section" id={`editor-images`}>
         <div className="stack">
           <section className="card">
             <div className="card-head">
@@ -391,9 +391,9 @@ export default function Website() {
             </div>
           </section>
         </div>
-      ) : null}
+      </div>
 
-      {tab === 'rooms' ? (
+      <div className="editor-section" id={`editor-rooms`}>
         <div className="stack">
           <p className="muted small">
             Photos and amenities here drive the room cards on the booking website and the front desk.
@@ -494,9 +494,9 @@ export default function Website() {
             </section>
           ))}
         </div>
-      ) : null}
+      </div>
 
-      {tab === 'domain' ? (
+      <div className="editor-section" id={`editor-domain`}>
         <div className="split-grid">
           <section className="card">
             <h3>Your own web address</h3>
@@ -596,7 +596,7 @@ export default function Website() {
             </div>
           </section>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
