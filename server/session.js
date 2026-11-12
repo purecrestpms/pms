@@ -24,15 +24,35 @@ export function parseCookies(header = '') {
 
 export function publicUser(row) {
   if (!row) return null;
+  let roleName = null;
+  try {
+    const role = get('select name from roles where key = ?', [row.role]);
+    roleName = role ? role.name : null;
+  } catch {
+    roleName = null;
+  }
   return {
     id: row.id,
     name: row.name,
     email: row.email,
     role: row.role,
+    role_name: roleName || row.role,
     active: Boolean(row.active),
     created_at: row.created_at,
     last_login: row.last_login
   };
+}
+
+/** Custom roles inherit the server permissions of their base role. */
+export function baseRoleOf(roleKey) {
+  if (!roleKey) return null;
+  if (ROLES.includes(roleKey)) return roleKey;
+  try {
+    const row = get('select base from roles where key = ?', [roleKey]);
+    return row ? row.base : roleKey;
+  } catch {
+    return roleKey;
+  }
 }
 
 export function createSession(req, res, userId) {
@@ -85,7 +105,8 @@ export function requireAuth(req, res, next) {
 export function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'Please sign in to continue' });
-    if (!roles.includes(req.user.role)) {
+    const base = baseRoleOf(req.user.role);
+    if (!roles.includes(req.user.role) && !roles.includes(base)) {
       return res.status(403).json({ error: 'Your role does not allow this action' });
     }
     return next();

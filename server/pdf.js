@@ -322,3 +322,94 @@ export function shiftReportPdf({ property, shift, cashier, totals, payments }) {
     footer(doc, property, 'Shift reports are retained for audit. Verify the counted cash before closing.');
   };
 }
+
+export function reportPdf(report) {
+  const property = report.property;
+  const currency = report.currency;
+  const { from, to, days } = report.range;
+  const kpis = report.kpis;
+  return (doc) => {
+    header(doc, property, 'Performance report', `${shortDate(from)} → ${shortDate(to)} · ${days} day${days === 1 ? '' : 's'}`);
+
+    fieldGrid(doc, [
+      { label: 'Occupancy', value: `${kpis.occupancy}%` },
+      { label: 'Room nights sold', value: `${kpis.room_nights} of ${kpis.available_room_nights}` },
+      { label: 'Room revenue', value: amount(kpis.room_revenue, currency) },
+      { label: 'Payments collected', value: amount(kpis.payments_total, currency) },
+      { label: 'ADR', value: amount(kpis.adr, currency) },
+      { label: 'RevPAR', value: amount(kpis.revpar, currency) },
+      { label: 'Bookings', value: kpis.bookings },
+      { label: 'Cancellations', value: kpis.cancelled }
+    ]);
+    rule(doc, 6);
+
+    doc.fillColor(INK).font('Helvetica-Bold').fontSize(11).text('Daily performance');
+    doc.moveDown(0.3);
+    table(
+      doc,
+      [
+        { key: 'date', label: 'Date', width: 24 },
+        { key: 'rooms', label: 'Rooms', width: 12, align: 'right' },
+        { key: 'occupancy', label: 'Occ %', width: 14, align: 'right' },
+        { key: 'arrivals', label: 'Arr', width: 10, align: 'right' },
+        { key: 'departures', label: 'Dep', width: 10, align: 'right' },
+        { key: 'room_revenue', label: 'Room revenue', width: 22, align: 'right' },
+        { key: 'payments', label: 'Payments', width: 22, align: 'right' }
+      ],
+      report.daily.map((row) => ({
+        date: shortDate(row.date),
+        rooms: row.rooms,
+        occupancy: row.occupancy,
+        arrivals: row.arrivals,
+        departures: row.departures,
+        room_revenue: amount(row.room_revenue, currency),
+        payments: amount(row.payments, currency)
+      })),
+      { emptyText: 'No activity in this period' }
+    );
+
+    doc.fillColor(INK).font('Helvetica-Bold').fontSize(11).text('Channel production');
+    doc.moveDown(0.3);
+    table(
+      doc,
+      [
+        { key: 'name', label: 'Channel', width: 40 },
+        { key: 'bookings', label: 'Bookings', width: 18, align: 'right' },
+        { key: 'room_nights', label: 'Room nights', width: 18, align: 'right' },
+        { key: 'revenue', label: 'Revenue', width: 24, align: 'right' }
+      ],
+      report.by_channel.map((row) => ({
+        name: row.name,
+        bookings: row.bookings,
+        room_nights: row.room_nights,
+        revenue: amount(row.revenue, currency)
+      })),
+      { emptyText: 'No bookings in this period' }
+    );
+
+    doc.fillColor(INK).font('Helvetica-Bold').fontSize(11).text('Payments by method');
+    doc.moveDown(0.3);
+    table(
+      doc,
+      [
+        { key: 'method', label: 'Method', width: 40 },
+        { key: 'count', label: 'Transactions', width: 20, align: 'right' },
+        { key: 'total', label: 'Total', width: 25, align: 'right' }
+      ],
+      report.by_method.map((row) => ({
+        method: String(row.method || '').toUpperCase(),
+        count: row.count,
+        total: amount(row.total, currency)
+      })),
+      { emptyText: 'No payments in this period' }
+    );
+
+    totalsBlock(doc, [
+      { label: 'Room revenue', value: amount(kpis.room_revenue, currency) },
+      { label: 'Payments collected', value: amount(kpis.payments_total, currency) },
+      { label: 'Occupancy', value: `${kpis.occupancy}%`, strong: true }
+    ]);
+
+    footer(doc, property, 'PCH PMS performance report. Figures are based on reservations and payments recorded in the system.');
+  };
+}

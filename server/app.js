@@ -273,11 +273,14 @@ function feedRow(row, req) {
 
 /* -------------------------------- app -------------------------------- */
 
+import { registerExtras } from './extras.js';
+
 export function createApp() {
   const app = express();
   app.set('trust proxy', true);
   app.disable('x-powered-by');
   app.use(express.json({ limit: '1mb' }));
+  registerExtras(app);
 
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
