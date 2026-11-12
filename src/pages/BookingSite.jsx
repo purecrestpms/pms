@@ -82,6 +82,12 @@ export default function BookingSite() {
   const [lookupResult, setLookupResult] = useState(null);
   const [lookupError, setLookupError] = useState('');
 
+  const [site, setSite] = useState(null);
+  const [card, setCard] = useState({ number: '', name: '', expiry: '', cvc: '' });
+  const [payment, setPayment] = useState(null);
+  const [payError, setPayError] = useState('');
+  const [paying, setPaying] = useState(false);
+
   const currency = quote?.currency || property?.currency || 'NGN';
   const accent = property?.accent || '#0f766e';
 
@@ -95,6 +101,10 @@ export default function BookingSite() {
         setRoomTypes(data.room_types || []);
       })
       .catch((error) => active && setLoadError(error.message));
+    api
+      .get('/public/site')
+      .then((data) => active && setSite(data))
+      .catch(() => active && setSite(null));
     return () => {
       active = false;
     };
@@ -152,6 +162,22 @@ export default function BookingSite() {
     }
   };
 
+  const payByCard = async (event) => {
+    event.preventDefault();
+    if (!booking) return;
+    setPayError('');
+    setPaying(true);
+    try {
+      const data = await api.post(`/public/bookings/${encodeURIComponent(booking.code)}/payment`, { card });
+      setPayment(data.payment);
+      setCard({ number: '', name: '', expiry: '', cvc: '' });
+    } catch (error) {
+      setPayError(error.message);
+    } finally {
+      setPaying(false);
+    }
+  };
+
   const lookup = async (event) => {
     event.preventDefault();
     setLookupError('');
@@ -166,6 +192,10 @@ export default function BookingSite() {
 
   const results = quote?.room_types || [];
   const nights = quote?.nights || 0;
+  const depositPercent = site?.deposit_percent ?? 100;
+  const bookingTotal = Number(booking?.total ?? booking?.rate ?? 0);
+  const dueNow = Math.round(bookingTotal * (depositPercent / 100) * 100) / 100;
+  const bookingBalance = Math.max(0, Math.round((bookingTotal - (payment?.amount || 0)) * 100) / 100);
 
   const groups = useMemo(() => {
     const serviced = results.filter((type) => type.section === 'serviced');
@@ -189,11 +219,11 @@ export default function BookingSite() {
   const heroStyle = useMemo(
     () => ({
       '--site-accent': accent,
-      backgroundImage: `linear-gradient(100deg, rgba(8,18,30,.94) 0%, rgba(8,18,30,.72) 46%, rgba(8,18,30,.42) 100%), url('/hero.svg')`,
+      backgroundImage: `linear-gradient(100deg, rgba(8,18,30,.94) 0%, rgba(8,18,30,.72) 46%, rgba(8,18,30,.42) 100%), url('${site?.hero_image || '/hero.svg'}')`,
       backgroundSize: 'cover',
       backgroundPosition: 'center'
     }),
-    [accent]
+    [accent, site]
   );
 
   return (
@@ -208,6 +238,7 @@ export default function BookingSite() {
         </div>
         <nav className="site-links">
           <a href="#rooms">Rooms</a>
+          <a href="#gallery">Gallery</a>
           <a href="#book">Book</a>
           <a href="#find">My booking</a>
           <a className="site-staff-link" href="/">
@@ -289,6 +320,87 @@ export default function BookingSite() {
           <button type="button" className="site-ghost" onClick={() => window.print()}>
             Print confirmation
           </button>
+        </section>
+      ) : null}
+
+      {booking && site?.card_payments && !payment ? (
+        <section className="site-pay" id="pay">
+          <div className="site-pay-head">
+            <h2>Pay by card</h2>
+            <span className="site-pill">
+              {depositPercent}% deposit · {money(dueNow, currency)}
+            </span>
+          </div>
+          <p className="muted small">
+            Secure card capture for booking <strong className="mono">{booking.code}</strong>. Stay total{' '}
+            {money(bookingTotal, currency)}; {money(dueNow, currency)} is taken now and the balance is settled on
+            arrival.
+          </p>
+          <form className="site-card-form" onSubmit={payByCard}>
+            <label className="wide">
+              <span>Card number</span>
+              <input
+                inputMode="numeric"
+                autoComplete="cc-number"
+                placeholder="4242 4242 4242 4242"
+                value={card.number}
+                onChange={(event) => setCard({ ...card, number: event.target.value })}
+                required
+              />
+            </label>
+            <label className="wide">
+              <span>Cardholder name</span>
+              <input
+                autoComplete="cc-name"
+                placeholder="As printed on the card"
+                value={card.name}
+                onChange={(event) => setCard({ ...card, name: event.target.value })}
+                required
+              />
+            </label>
+            <label>
+              <span>Expiry (MM/YY)</span>
+              <input
+                autoComplete="cc-exp"
+                placeholder="09/28"
+                value={card.expiry}
+                onChange={(event) => setCard({ ...card, expiry: event.target.value })}
+                required
+              />
+            </label>
+            <label>
+              <span>Security code</span>
+              <input
+                inputMode="numeric"
+                autoComplete="cc-csc"
+                placeholder="123"
+                value={card.cvc}
+                onChange={(event) => setCard({ ...card, cvc: event.target.value })}
+                required
+              />
+            </label>
+            {payError ? <div className="site-error wide">{payError}</div> : null}
+            <div className="site-form-actions wide">
+              <button type="submit" className="site-cta" disabled={paying}>
+                {paying ? 'Authorising…' : `Pay ${money(dueNow, currency)}`}
+              </button>
+              <span className="muted small">
+                The card is validated on the property server and only the brand and last four digits are kept.
+              </span>
+            </div>
+          </form>
+        </section>
+      ) : null}
+
+      {payment ? (
+        <section className="site-confirm paid">
+          <h2>Payment received</h2>
+          <p>
+            {payment.brand} ending {payment.last4} · <strong>{money(payment.amount, currency)}</strong> paid
+          </p>
+          <p className="muted small">
+            Reference {payment.reference}. Balance due on arrival: {money(bookingBalance, currency)}.
+          </p>
         </section>
       ) : null}
 
@@ -413,6 +525,46 @@ export default function BookingSite() {
         ) : null}
       </section>
 
+      {site?.gallery?.length ? (
+        <section className="site-gallery" id="gallery">
+          <h2>Inside {property?.name || 'Richgates Apartments'}</h2>
+          <p className="muted small">Photographs uploaded from the property dashboard — changes appear here instantly.</p>
+          <div className="site-gallery-grid">
+            {site.gallery.map((item, index) => (
+              <figure key={`${item.url}-${index}`}>
+                <img
+                  src={item.url}
+                  alt={item.caption || `${property?.name || 'Property'} photo ${index + 1}`}
+                  loading="lazy"
+                />
+                {item.caption ? <figcaption>{item.caption}</figcaption> : null}
+              </figure>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {site?.facilities?.length ? (
+        <section className="site-facilities">
+          <h2>Facilities & services</h2>
+          <ul>
+            {site.facilities.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          {site.whatsapp ? (
+            <a
+              className="site-ghost"
+              href={`https://wa.me/${String(site.whatsapp).replace(/\D/g, '')}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Chat on WhatsApp
+            </a>
+          ) : null}
+        </section>
+      ) : null}
+
       <footer className="site-footer">
         <div>
           <strong>{property?.name || 'Richgates Apartments'}</strong>
@@ -424,7 +576,7 @@ export default function BookingSite() {
           Check-in {property?.check_in_time || '14:00'} · Check-out {property?.check_out_time || '12:00'}
         </div>
         <div className="muted small">
-          Powered by <strong>Richgates PMS</strong> · availability synced live with the front desk
+          Powered by <strong>PCH PMS</strong> · availability synced live with the front desk
         </div>
       </footer>
     </div>
