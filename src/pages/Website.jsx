@@ -176,7 +176,10 @@ export default function Website() {
             key={item.key}
             type="button"
             className={`tab${tab === item.key ? ' active' : ''}`}
-            onClick={() => setTab(item.key)}
+            onClick={() => {
+              setTab(item.key);
+              document.getElementById(`editor-${item.key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
           >
             <strong>{item.label}</strong>
             <span>{item.hint}</span>
