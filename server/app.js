@@ -1186,7 +1186,7 @@ export function createApp() {
     const end = addDays(start, days);
 
     const rooms = all(
-      `select rm.id, rm.number, rm.floor, rm.status, rm.active, rt.name as room_type_name
+      `select rm.id, rm.number, rm.floor, rm.status, rm.active, rm.room_type_id, rt.name as room_type_name
        from rooms rm join room_types rt on rt.id = rm.room_type_id
        where rm.active = 1 order by rm.number`
     );
