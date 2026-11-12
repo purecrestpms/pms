@@ -190,6 +190,19 @@ test('room iCal export feed is publicly readable and contains the stay', async (
   const room = rooms.data.rooms.find((item) => item.number === 'T-999');
   assert.ok(room.ical_token, 'every room needs an export token');
 
+  const stay = await call('/api/reservations', {
+    method: 'POST',
+    body: {
+      first_name: 'Export',
+      last_name: 'Guest',
+      check_in: addDays(todayISO(), 140),
+      check_out: addDays(todayISO(), 143),
+      room_type_id: room.room_type_id,
+      room_id: room.id
+    }
+  });
+  assert.equal(stay.status, 201, stay.text);
+
   const feed = await fetch(`${base}/ical/${room.ical_token}.ics`);
   assert.equal(feed.status, 200);
   assert.match(feed.headers.get('content-type') || '', /text\/calendar/);
