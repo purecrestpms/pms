@@ -467,7 +467,7 @@ export function createApp() {
 
   /* ------------------------------ property ------------------------------ */
   app.get('/api/property', requireAuth, (req, res) => {
-    res.json({ property: readSettings(), currency: readSettings().currency || 'EUR' });
+    res.json({ property: readSettings(), currency: readSettings().currency || 'NGN' });
   });
 
   app.put(
@@ -479,10 +479,16 @@ export function createApp() {
         'property_name',
         'property_address',
         'property_phone',
+        'property_email',
         'currency',
         'check_in_time',
         'check_out_time',
-        'timezone'
+        'timezone',
+        'site_headline',
+        'site_tagline',
+        'site_about',
+        'site_notice',
+        'site_accent'
       ];
       const body = req.body || {};
       for (const key of allowed) {
@@ -524,13 +530,23 @@ export function createApp() {
       const baseRate = Number(body.base_rate || 0);
       if (!Number.isFinite(capacity) || capacity < 1) throw httpError(400, 'Capacity must be at least 1');
       if (!Number.isFinite(baseRate) || baseRate < 0) throw httpError(400, 'Base rate must be zero or more');
-      const created = run('insert into room_types (name, code, capacity, base_rate, description) values (?,?,?,?,?)', [
-        name,
-        String(body.code || '').trim() || null,
-        capacity,
-        baseRate,
-        String(body.description || '').trim() || null
-      ]);
+      const section = body.section === 'serviced' ? 'serviced' : 'hotel';
+      const created = run(
+        `insert into room_types (name, code, capacity, base_rate, description, section, bed, size_sqm, amenities, image_url)
+         values (?,?,?,?,?,?,?,?,?,?)`,
+        [
+          name,
+          String(body.code || '').trim() || null,
+          capacity,
+          baseRate,
+          String(body.description || '').trim() || null,
+          section,
+          String(body.bed || '').trim() || null,
+          Number.isFinite(Number(body.size_sqm)) ? Number(body.size_sqm) : null,
+          String(body.amenities || '').trim() || null,
+          String(body.image_url || '').trim() || null
+        ]
+      );
       logActivity(req.user.id, 'room_type', `Created room type ${name}`);
       res.status(201).json({ room_type: get('select * from room_types where id = ?', [created.id]) });
     })
@@ -571,6 +587,32 @@ export function createApp() {
       if (body.code !== undefined) {
         updates.push('code = ?');
         params.push(String(body.code).trim() || null);
+      }
+      if (body.section !== undefined) {
+        const section = String(body.section).trim();
+        if (!['serviced', 'hotel'].includes(section)) throw httpError(400, 'Section must be serviced or hotel');
+        updates.push('section = ?');
+        params.push(section);
+      }
+      if (body.bed !== undefined) {
+        updates.push('bed = ?');
+        params.push(String(body.bed).trim() || null);
+      }
+      if (body.size_sqm !== undefined) {
+        const size = Number(body.size_sqm);
+        if (body.size_sqm !== null && body.size_sqm !== '' && (!Number.isFinite(size) || size < 0)) {
+          throw httpError(400, 'Size must be zero or more');
+        }
+        updates.push('size_sqm = ?');
+        params.push(body.size_sqm === null || body.size_sqm === '' ? null : size);
+      }
+      if (body.amenities !== undefined) {
+        updates.push('amenities = ?');
+        params.push(String(body.amenities).trim() || null);
+      }
+      if (body.image_url !== undefined) {
+        updates.push('image_url = ?');
+        params.push(String(body.image_url).trim() || null);
       }
       if (!updates.length) throw httpError(400, 'Nothing to update');
       run(`update room_types set ${updates.join(', ')} where id = ?`, [...params, id]);
@@ -1023,14 +1065,14 @@ export function createApp() {
   function publicProperty() {
     const settings = readSettings();
     return {
-      name: settings.property_name || 'PCH Hotel',
+      name: settings.property_name || 'Richgates Apartments',
       address: settings.property_address || '',
       phone: settings.property_phone || '',
       email: settings.property_email || '',
-      currency: settings.currency || 'EUR',
-      check_in_time: settings.check_in_time || '15:00',
-      check_out_time: settings.check_out_time || '11:00',
-      headline: settings.site_headline || 'Boutique stays, booked direct',
+      currency: settings.currency || 'NGN',
+      check_in_time: settings.check_in_time || '14:00',
+      check_out_time: settings.check_out_time || '12:00',
+      headline: settings.site_headline || 'Serviced apartments and hotel rooms in Lekki',
       tagline: settings.site_tagline || '',
       about: settings.site_about || '',
       notice: settings.site_notice || '',
@@ -1067,6 +1109,11 @@ export function createApp() {
         code: type.code,
         capacity: type.capacity,
         description: type.description,
+        section: type.section || 'hotel',
+        bed: type.bed || '',
+        size_sqm: type.size_sqm || null,
+        amenities: type.amenities || '',
+        image_url: type.image_url || '',
         nightly_rate: nightly,
         total_price: money(nightly * stayNights),
         available,
@@ -1078,7 +1125,7 @@ export function createApp() {
       check_out: checkOut,
       nights: stayNights,
       adults,
-      currency: settings.currency || 'EUR',
+      currency: settings.currency || 'NGN',
       room_types: roomTypes
     });
   });
@@ -1935,6 +1982,49 @@ export function createApp() {
     const roomStatus = {};
     for (const row of statusRows) roomStatus[row.status] = row.c;
 
+    const trend = eachDate(addDays(today, -6), 7).map((date) => {
+      const stay = get(
+        `select count(distinct room_id) as c from reservations
+         where room_id is not null and status in ('confirmed','checked_in') and check_in <= ? and check_out > ?`,
+        [date, date]
+      );
+      const rev = get(
+        'select coalesce(sum(amount * quantity), 0) as total from charges where substr(created_at, 1, 10) = ?',
+        [date]
+      );
+      return {
+        date,
+        occupancy: totalRooms ? Math.round((((stay ? stay.c : 0) / totalRooms) * 100)) : 0,
+        revenue: money(rev ? rev.total : 0)
+      };
+    });
+
+    const channelMix = all(
+      `select coalesce(ch.name, 'Direct') as name, coalesce(ch.color, '#0f766e') as color, count(*) as bookings,
+        coalesce(sum(r.rate * (julianday(r.check_out) - julianday(r.check_in))), 0) as value
+       from reservations r left join channels ch on ch.id = r.channel_id
+       where r.status in ('pending','confirmed','checked_in') and substr(r.created_at, 1, 10) >= ?
+       group by ch.id order by bookings desc`,
+      [addDays(today, -30)]
+    ).map((row) => ({ ...row, value: money(row.value) }));
+
+    const upcoming = all(
+      `select r.id, r.code, r.check_in, r.check_out, r.status, r.rate,
+        g.first_name || ' ' || g.last_name as guest_name,
+        rt.name as room_type_name, rm.number as room_number
+       from reservations r join guests g on g.id = r.guest_id
+       join room_types rt on rt.id = r.room_type_id left join rooms rm on rm.id = r.room_id
+       where r.status in ('pending','confirmed') and r.check_in > ? and r.check_in <= ?
+       order by r.check_in limit 6`,
+      [today, addDays(today, 7)]
+    ).map((row) => ({ ...row, nights: nights(row.check_in, row.check_out) }));
+
+    const revenueWeek = trend.reduce((sum, day) => sum + Number(day.revenue || 0), 0);
+    const revenueMonth = get(
+      'select coalesce(sum(amount * quantity), 0) as total from charges where substr(created_at, 1, 10) >= ?',
+      [addDays(today, -29)]
+    );
+
     const revenueRow = get(`select coalesce(sum(amount * quantity), 0) as total from charges where substr(created_at, 1, 10) = ?`, [today]);
     const feeds = all(`${FEED_SELECT} order by f.name`).map((row) => feedRow(row, req));
     const activity = all(
@@ -1959,8 +2049,14 @@ export function createApp() {
         clean: roomStatus.clean || 0,
         inspected: roomStatus.inspected || 0,
         out_of_order: roomStatus.out_of_order || 0,
-        revenue_today: money(revenueRow ? revenueRow.total : 0)
+        revenue_today: money(revenueRow ? revenueRow.total : 0),
+        revenue_week: money(revenueWeek),
+        revenue_month: money(revenueMonth ? revenueMonth.total : 0),
+        bookings_week: upcoming.length
       },
+      trend,
+      channels: channelMix,
+      upcoming,
       arrivals,
       departures,
       in_house: inHouse,
