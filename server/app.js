@@ -368,7 +368,14 @@ export function createApp() {
   /* --------------------------- staff accounts --------------------------- */
   app.get('/api/users', requireAuth, requireRole('admin', 'manager'), (req, res) => {
     const rows = all('select * from users order by active desc, name');
-    res.json({ users: rows.map(publicUser), roles: ROLES });
+    let roleKeys = ROLES;
+    try {
+      const custom = all('select key from roles order by builtin desc, name').map((row) => row.key);
+      if (custom.length) roleKeys = custom;
+    } catch {
+      roleKeys = ROLES;
+    }
+    res.json({ users: rows.map(publicUser), roles: roleKeys });
   });
 
   app.post(
@@ -382,7 +389,9 @@ export function createApp() {
       if (cleanName.length < 2) throw httpError(400, 'Full name is required');
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) throw httpError(400, 'A valid email address is required');
       if (String(password || '').length < 8) throw httpError(400, 'Password must be at least 8 characters');
-      if (!ROLES.includes(role)) throw httpError(400, 'Choose a valid role');
+      if (!ROLES.includes(role) && !get('select key from roles where key = ?', [role])) {
+        throw httpError(400, 'Choose a valid role');
+      }
       if (get('select id from users where lower(email) = ?', [cleanEmail])) {
         throw httpError(409, 'An account with that email already exists');
       }
@@ -415,7 +424,9 @@ export function createApp() {
         params.push(cleanName);
       }
       if (body.role !== undefined) {
-        if (!ROLES.includes(body.role)) throw httpError(400, 'Choose a valid role');
+        if (!ROLES.includes(body.role) && !get('select key from roles where key = ?', [body.role])) {
+          throw httpError(400, 'Choose a valid role');
+        }
         updates.push('role = ?');
         params.push(body.role);
       }
