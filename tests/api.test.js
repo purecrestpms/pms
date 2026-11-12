@@ -31,7 +31,7 @@ after(() => {
 
 function client() {
   let cookie = '';
-  return async function call(pathname, { method = 'GET', body } = {}) {
+  const call = async function call(pathname, { method = 'GET', body } = {}) {
     const headers = {};
     if (body !== undefined) headers['content-type'] = 'application/json';
     if (cookie) headers.cookie = cookie;
@@ -55,6 +55,8 @@ function client() {
     }
     return { status: response.status, data, text };
   };
+  call.getCookie = () => cookie;
+  return call;
 }
 
 async function login(email, password) {
@@ -301,4 +303,183 @@ test('generated iCal round-trips through the parser', () => {
   assert.equal(events.length, 1);
   assert.equal(events[0].start, '2026-03-01');
   assert.equal(events[0].end, '2026-03-04');
+});
+
+test('guest profiles capture identity, preferences and stay history', async () => {
+  const { call } = await login('admin@hotelpms.local', 'Admin123!');
+
+  const missing = await call('/api/guests', { method: 'POST', body: { first_name: 'Only' } });
+  assert.equal(missing.status, 400, 'first and last name are required');
+
+  const created = await call('/api/guests', {
+    method: 'POST',
+    body: {
+      first_name: 'Rosalind',
+      last_name: 'Franklin',
+      email: 'rosalind@test.local',
+      phone: '+441234',
+      country: 'United Kingdom',
+      company: 'Photo 51 Ltd',
+      id_type: 'Passport',
+      id_number: 'X1234567',
+      preferences: 'Quiet room, extra pillows',
+      vip: true
+    }
+  });
+  assert.equal(created.status, 201, created.text);
+  const guestId = created.data.guest.id;
+
+  const search = await call('/api/guests?q=franklin');
+  assert.equal(search.status, 200);
+  assert.ok(search.data.guests.some((guest) => guest.id === guestId), 'profile must be searchable by name');
+
+  const byCompany = await call('/api/guests?q=photo%2051');
+  assert.ok(byCompany.data.guests.some((guest) => guest.id === guestId), 'profile must be searchable by company');
+
+  const patched = await call(`/api/guests/${guestId}`, {
+    method: 'PATCH',
+    body: { notes: 'Prefers late checkout', marketing_opt_in: true }
+  });
+  assert.equal(patched.status, 200, patched.text);
+
+  const detail = await call(`/api/guests/${guestId}`);
+  assert.equal(detail.status, 200);
+  assert.equal(detail.data.guest.id_number, 'X1234567');
+  assert.equal(detail.data.guest.vip, 1);
+  assert.equal(detail.data.guest.notes, 'Prefers late checkout');
+  assert.ok(Array.isArray(detail.data.reservations), 'stay history must be returned');
+
+  const removed = await call(`/api/guests/${guestId}`, { method: 'DELETE' });
+  assert.equal(removed.status, 200, removed.text);
+  assert.equal((await call(`/api/guests/${guestId}`)).status, 404);
+});
+
+test('shift cash-up tracks payments, variance and printable PDF documents', async () => {
+  const { call } = await login('frontdesk@hotelpms.local', 'Front123!');
+
+  const opened = await call('/api/shifts/open', { method: 'POST', body: { opening_float: 100, notes: 'Morning shift' } });
+  assert.equal(opened.status, 201, opened.text);
+  const shiftId = opened.data.shift.id;
+  assert.equal(opened.data.shift.status, 'open');
+
+  const duplicate = await call('/api/shifts/open', { method: 'POST', body: { opening_float: 50 } });
+  assert.equal(duplicate.status, 409, 'a cashier cannot hold two open shifts');
+
+  const rooms = await call('/api/rooms');
+  const room = rooms.data.rooms.find((item) => item.number === 'T-999');
+  assert.ok(room, 'test room must exist');
+  const stayIn = addDays(todayISO(), 200);
+  const stayOut = addDays(stayIn, 2);
+
+  const reservation = await call('/api/reservations', {
+    method: 'POST',
+    body: {
+      first_name: 'Katherine',
+      last_name: 'Johnson',
+      check_in: stayIn,
+      check_out: stayOut,
+      adults: 1,
+      room_type_id: room.room_type_id,
+      room_id: room.id
+    }
+  });
+  assert.equal(reservation.status, 201, reservation.text);
+  const reservationId = reservation.data.reservation.id;
+
+  const payment = await call(`/api/reservations/${reservationId}/payments`, {
+    method: 'POST',
+    body: { amount: 50, method: 'cash', reference: 'DRAWER-1' }
+  });
+  assert.equal(payment.status, 201, payment.text);
+
+  const closed = await call(`/api/shifts/${shiftId}/close`, {
+    method: 'POST',
+    body: { counted_cash: 150, closing_notes: 'Drawer balanced' }
+  });
+  assert.equal(closed.status, 200, closed.text);
+  assert.equal(closed.data.shift.status, 'closed');
+  assert.equal(Number(closed.data.shift.variance), 0, 'counted cash must match the expected drawer');
+
+  const cookie = call.getCookie();
+  const documents = [
+    `/api/shifts/${shiftId}/report.pdf`,
+    `/api/reservations/${reservationId}/folio.pdf`,
+    `/api/reservations/${reservationId}/registration.pdf`
+  ];
+  for (const pathname of documents) {
+    const response = await fetch(`${base}${pathname}`, { headers: { cookie } });
+    assert.equal(response.status, 200, `${pathname} must download for staff`);
+    assert.match(response.headers.get('content-type') || '', /application\/pdf/);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    assert.equal(buffer.subarray(0, 4).toString(), '%PDF', `${pathname} must be a real PDF document`);
+  }
+
+  const anonymous = await fetch(`${base}/api/shifts/${shiftId}/report.pdf`);
+  assert.equal(anonymous.status, 401, 'shift reports must not leak without a session');
+});
+
+test('public booking website quotes availability and creates a synced booking', async () => {
+  const call = client();
+
+  const property = await call('/api/public/property');
+  assert.equal(property.status, 200, property.text);
+  assert.ok(property.data.property.name, 'the website needs a property name');
+  const type = property.data.room_types.find((item) => item.room_count > 0);
+  assert.ok(type, 'at least one bookable room type is required');
+
+  const checkIn = addDays(todayISO(), 150);
+  const checkOut = addDays(checkIn, 2);
+
+  const availability = await call(`/api/public/availability?check_in=${checkIn}&check_out=${checkOut}&adults=2`);
+  assert.equal(availability.status, 200, availability.text);
+
+  const past = await call(
+    `/api/public/availability?check_in=${addDays(todayISO(), -4)}&check_out=${addDays(todayISO(), -2)}`
+  );
+  assert.equal(past.status, 400, 'past arrivals must be rejected');
+
+  const booking = await call('/api/public/bookings', {
+    method: 'POST',
+    body: {
+      first_name: 'Hedy',
+      last_name: 'Lamarr',
+      email: 'hedy@test.local',
+      phone: '+431234',
+      country: 'Austria',
+      room_type_id: type.id,
+      check_in: checkIn,
+      check_out: checkOut,
+      adults: 2,
+      children: 0
+    }
+  });
+  assert.equal(booking.status, 201, booking.text);
+  assert.match(booking.data.reservation.code, /^PCH-/);
+  assert.equal(booking.data.reservation.status, 'confirmed');
+  assert.ok(booking.data.reservation.room_id, 'the website must assign a free room automatically');
+
+  const lookup = await call(`/api/public/bookings/${booking.data.reservation.code}`);
+  assert.equal(lookup.status, 200);
+  assert.match(lookup.data.reservation.guest_name, /Hedy/);
+
+  const invalidEmail = await call('/api/public/bookings', {
+    method: 'POST',
+    body: {
+      first_name: 'A',
+      last_name: 'B',
+      email: 'not-an-email',
+      room_type_id: type.id,
+      check_in: checkIn,
+      check_out: checkOut
+    }
+  });
+  assert.equal(invalidEmail.status, 400, 'the booking form must validate the email address');
+
+  const staff = await login('frontdesk@hotelpms.local', 'Front123!');
+  const calendar = await staff.call(`/api/calendar?start=${checkIn}&days=4`);
+  assert.equal(calendar.status, 200);
+  assert.ok(
+    calendar.data.reservations.some((item) => item.code === booking.data.reservation.code),
+    'website bookings must appear on the PMS availability calendar'
+  );
 });
