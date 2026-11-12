@@ -38,7 +38,12 @@ CREATE TABLE IF NOT EXISTS room_types (
   code TEXT,
   capacity INTEGER NOT NULL DEFAULT 2,
   base_rate REAL NOT NULL DEFAULT 100,
-  description TEXT
+  description TEXT,
+  section TEXT NOT NULL DEFAULT 'hotel',
+  bed TEXT,
+  size_sqm INTEGER,
+  amenities TEXT,
+  image_url TEXT
 );
 CREATE TABLE IF NOT EXISTS rooms (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
