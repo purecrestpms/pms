@@ -694,20 +694,61 @@ export function createApp() {
   );
 
   /* ------------------------------- guests ------------------------------- */
+  const GUEST_SELECT = `select g.*,
+      (select count(*) from reservations r where r.guest_id = g.id and r.status not in ('cancelled','no_show')) as stays,
+      (select coalesce(sum(julianday(r.check_out) - julianday(r.check_in)), 0) from reservations r
+        where r.guest_id = g.id and r.status not in ('cancelled','no_show')) as nights_stayed,
+      (select coalesce(sum(p.amount), 0) from payments p join reservations r on r.id = p.reservation_id
+        where r.guest_id = g.id) as lifetime_value,
+      (select max(r.check_in) from reservations r where r.guest_id = g.id) as last_stay,
+      (select min(r.check_in) from reservations r where r.guest_id = g.id
+        and r.check_in >= ? and r.status in ('pending','confirmed','checked_in')) as next_stay
+    from guests g`;
+
   app.get('/api/guests', requireAuth, (req, res) => {
     const q = String(req.query.q || '').trim();
     const like = `%${q}%`;
     const rows = all(
-      `select g.*, (select count(*) from reservations r where r.guest_id = g.id) as stays,
-        (select max(r.check_in) from reservations r where r.guest_id = g.id) as last_stay
-       from guests g
+      `${GUEST_SELECT}
        where ? = '' or lower(g.first_name || ' ' || g.last_name) like lower(?)
-         or lower(coalesce(g.email, '')) like lower(?) or coalesce(g.phone, '') like ?
-       order by g.created_at desc limit 200`,
-      [q, like, like, like]
+         or lower(coalesce(g.email, '')) like lower(?)
+         or coalesce(g.phone, '') like ?
+         or lower(coalesce(g.company, '')) like lower(?)
+         or lower(coalesce(g.id_number, '')) like lower(?)
+       order by g.vip desc, g.last_name, g.first_name limit 300`,
+      [todayISO(), q, like, like, like, like, like]
     );
     res.json({ guests: rows });
   });
+
+  app.get('/api/guests/:id', requireAuth, (req, res) => {
+    const id = Number(req.params.id);
+    const guest = get(`${GUEST_SELECT} where g.id = ?`, [todayISO(), id]);
+    if (!guest) throw httpError(404, 'Guest not found');
+    const reservations = all(`${RES_SELECT} where r.guest_id = ? order by r.check_in desc`, [id]).map(reservationRow);
+    res.json({ guest, reservations });
+  });
+
+  const GUEST_FIELDS = [
+    ['first_name', 'first_name'],
+    ['last_name', 'last_name'],
+    ['email', 'email'],
+    ['phone', 'phone'],
+    ['country', 'country'],
+    ['company', 'company'],
+    ['address', 'address'],
+    ['city', 'city'],
+    ['id_type', 'id_type'],
+    ['id_number', 'id_number'],
+    ['birth_date', 'birth_date'],
+    ['preferences', 'preferences'],
+    ['notes', 'notes']
+  ];
+  const GUEST_FLAGS = [
+    ['vip', 'vip'],
+    ['marketing_opt_in', 'marketing_opt_in'],
+    ['blacklisted', 'blacklisted']
+  ];
 
   app.post(
     '/api/guests',
@@ -718,18 +759,33 @@ export function createApp() {
       const first = String(body.first_name || '').trim();
       const last = String(body.last_name || '').trim();
       if (!first || !last) throw httpError(400, 'Guest first and last name are required');
+      const now = new Date().toISOString();
       const created = run(
-        'insert into guests (first_name, last_name, email, phone, country, notes, created_at) values (?,?,?,?,?,?,?)',
+        `insert into guests (first_name, last_name, email, phone, country, company, address, city, id_type, id_number,
+          birth_date, preferences, notes, vip, marketing_opt_in, blacklisted, created_at, updated_at)
+         values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
           first,
           last,
           String(body.email || '').trim() || null,
           String(body.phone || '').trim() || null,
           String(body.country || '').trim() || null,
+          String(body.company || '').trim() || null,
+          String(body.address || '').trim() || null,
+          String(body.city || '').trim() || null,
+          String(body.id_type || '').trim() || null,
+          String(body.id_number || '').trim() || null,
+          String(body.birth_date || '').trim() || null,
+          String(body.preferences || '').trim() || null,
           String(body.notes || '').trim() || null,
-          new Date().toISOString()
+          body.vip ? 1 : 0,
+          body.marketing_opt_in ? 1 : 0,
+          body.blacklisted ? 1 : 0,
+          now,
+          now
         ]
       );
+      logActivity(req.user.id, 'guest', `Created guest profile ${first} ${last}`);
       res.status(201).json({ guest: get('select * from guests where id = ?', [created.id]) });
     })
   );
@@ -744,21 +800,37 @@ export function createApp() {
       const body = req.body || {};
       const updates = [];
       const params = [];
-      for (const [key, column] of [
-        ['first_name', 'first_name'],
-        ['last_name', 'last_name'],
-        ['email', 'email'],
-        ['phone', 'phone'],
-        ['country', 'country'],
-        ['notes', 'notes']
-      ]) {
+      for (const [key, column] of GUEST_FIELDS) {
         if (body[key] === undefined) continue;
         updates.push(`${column} = ?`);
         params.push(String(body[key]).trim() || null);
       }
+      for (const [key, column] of GUEST_FLAGS) {
+        if (body[key] === undefined) continue;
+        updates.push(`${column} = ?`);
+        params.push(body[key] ? 1 : 0);
+      }
       if (!updates.length) throw httpError(400, 'Nothing to update');
-      run(`update guests set ${updates.join(', ')} where id = ?`, [...params, id]);
+      updates.push('updated_at = ?');
+      params.push(new Date().toISOString(), id);
+      run(`update guests set ${updates.join(', ')} where id = ?`, params);
+      logActivity(req.user.id, 'guest', `Updated guest profile #${id}`);
       res.json({ guest: get('select * from guests where id = ?', [id]) });
+    })
+  );
+
+  app.delete(
+    '/api/guests/:id',
+    requireAuth,
+    requireRole('admin', 'manager'),
+    wrap(async (req, res) => {
+      const id = Number(req.params.id);
+      if (!get('select id from guests where id = ?', [id])) throw httpError(404, 'Guest not found');
+      const linked = get('select count(*) as c from reservations where guest_id = ?', [id]).c;
+      if (linked) throw httpError(409, 'This guest has reservation history and cannot be deleted');
+      run('delete from guests where id = ?', [id]);
+      logActivity(req.user.id, 'guest', `Deleted guest profile #${id}`);
+      res.json({ ok: true });
     })
   );
 
@@ -1146,14 +1218,21 @@ export function createApp() {
       const { amount, method, reference } = req.body || {};
       const value = Number(amount);
       if (!Number.isFinite(value) || value <= 0) throw httpError(400, 'Payment amount must be greater than zero');
-      run('insert into payments (reservation_id, amount, method, reference, created_by, created_at) values (?,?,?,?,?,?)', [
-        id,
-        money(value),
-        String(method || 'card'),
-        String(reference || '').trim() || null,
-        req.user.id,
-        new Date().toISOString()
+      const shift = get("select id from shifts where user_id = ? and status = 'open' order by id desc limit 1", [
+        req.user.id
       ]);
+      run(
+        'insert into payments (reservation_id, amount, method, reference, created_by, created_at, shift_id) values (?,?,?,?,?,?,?)',
+        [
+          id,
+          money(value),
+          String(method || 'card'),
+          String(reference || '').trim() || null,
+          req.user.id,
+          new Date().toISOString(),
+          shift ? shift.id : null
+        ]
+      );
       logActivity(req.user.id, 'payment', `Recorded ${money(value)} payment on reservation #${id}`);
       res.status(201).json({ payments: all('select * from payments where reservation_id = ? order by id', [id]) });
     })
