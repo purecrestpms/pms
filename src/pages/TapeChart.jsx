@@ -143,7 +143,7 @@ export default function TapeChart() {
       ) : null}
 
       <Card
-        title="Availability calendar"
+        title="Calendar"
         subtitle="Occupancy heat strip, channel blocks and one-click booking on any free cell"
         padded={false}
         actions={

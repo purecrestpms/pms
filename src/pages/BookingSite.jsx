@@ -17,6 +17,47 @@ function prettyDate(iso) {
   });
 }
 
+function RoomCard({ type, accent, currency, nights, onSelect }) {
+  return (
+    <article className={`site-room${type.fits ? '' : ' soldout'}`}>
+      <div className="site-room-media">
+        {type.image_url ? (
+          <img src={type.image_url} alt={`${type.name} at Richgates Apartments`} loading="lazy" />
+        ) : (
+          <span>{type.code || type.name.slice(0, 2).toUpperCase()}</span>
+        )}
+        <span className="site-room-tag">{type.section === 'serviced' ? 'Serviced apartment' : 'Hotel room'}</span>
+      </div>
+      <div className="site-room-body">
+        <div className="site-room-head">
+          <h3>{type.name}</h3>
+          <span className={`site-pill${type.available > 0 ? '' : ' out'}`}>
+            {type.available > 0 ? `${type.available} left` : 'Sold out'}
+          </span>
+        </div>
+        <p className="muted small">{type.description || `Sleeps up to ${type.capacity} guests.`}</p>
+        <div className="site-room-facts">
+          <span>Sleeps {type.capacity}</span>
+          {type.bed ? <span>{type.bed}</span> : null}
+          {type.size_sqm ? <span>{type.size_sqm} m²</span> : null}
+        </div>
+        {type.amenities ? <div className="site-room-amenities">{type.amenities}</div> : null}
+        <div className="site-room-foot">
+          <div>
+            <div className="site-room-total">{money(type.total_price, currency)}</div>
+            <div className="muted small">
+              {money(type.nightly_rate, currency)} / night · {nights} night{nights === 1 ? '' : 's'}
+            </div>
+          </div>
+          <button type="button" className="site-cta" disabled={!type.fits} onClick={onSelect}>
+            {type.fits ? 'Book now' : 'Not available'}
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export default function BookingSite() {
   const [property, setProperty] = useState(null);
   const [roomTypes, setRoomTypes] = useState([]);
@@ -41,7 +82,7 @@ export default function BookingSite() {
   const [lookupResult, setLookupResult] = useState(null);
   const [lookupError, setLookupError] = useState('');
 
-  const currency = quote?.currency || property?.currency || 'EUR';
+  const currency = quote?.currency || property?.currency || 'NGN';
   const accent = property?.accent || '#0f766e';
 
   useEffect(() => {
@@ -126,10 +167,31 @@ export default function BookingSite() {
   const results = quote?.room_types || [];
   const nights = quote?.nights || 0;
 
+  const groups = useMemo(() => {
+    const serviced = results.filter((type) => type.section === 'serviced');
+    const hotel = results.filter((type) => type.section !== 'serviced');
+    return [
+      {
+        key: 'serviced',
+        title: 'Serviced apartments',
+        subtitle: 'Private kitchenette, living space and daily housekeeping — ideal for longer stays.',
+        items: serviced
+      },
+      {
+        key: 'hotel',
+        title: 'Hotel rooms',
+        subtitle: 'Comfortable en-suite rooms with air conditioning, smart TV and fast Wi-Fi.',
+        items: hotel
+      }
+    ].filter((group) => group.items.length);
+  }, [results]);
+
   const heroStyle = useMemo(
     () => ({
       '--site-accent': accent,
-      background: `linear-gradient(135deg, ${accent} 0%, #0b1220 100%)`
+      backgroundImage: `linear-gradient(100deg, rgba(8,18,30,.94) 0%, rgba(8,18,30,.72) 46%, rgba(8,18,30,.42) 100%), url('/hero.svg')`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center'
     }),
     [accent]
   );
@@ -138,9 +200,9 @@ export default function BookingSite() {
     <div className="site">
       <header className="site-nav">
         <div className="site-brand">
-          <span className="site-mark">{property?.name ? property.name.slice(0, 3).toUpperCase() : 'PCH'}</span>
+          <span className="site-mark">{property?.name ? property.name.slice(0, 2).toUpperCase() : 'RG'}</span>
           <div>
-            <div className="site-brand-name">{property?.name || 'PCH Hotel'}</div>
+            <div className="site-brand-name">{property?.name || 'Richgates Apartments'}</div>
             <div className="site-brand-sub">{property?.address || 'Book direct'}</div>
           </div>
         </div>
@@ -157,8 +219,8 @@ export default function BookingSite() {
       <section className="site-hero" style={heroStyle}>
         <div className="site-hero-inner">
           <span className="site-eyebrow">Book direct · best available rate</span>
-          <h1>{property?.headline || 'Boutique stays, booked direct'}</h1>
-          <p>{property?.tagline || 'Reserve the best room in the house and skip the middleman.'}</p>
+          <h1>{property?.headline || 'Serviced apartments and hotel rooms, booked direct'}</h1>
+          <p>{property?.tagline || 'Choose a serviced apartment with kitchenette or a comfortable hotel room — best rate, instant confirmation.'}</p>
           {property?.notice ? <div className="site-notice">{property.notice}</div> : null}
         </div>
       </section>
@@ -234,49 +296,31 @@ export default function BookingSite() {
         <h2>Choose your room</h2>
         {searching && !results.length ? <p className="muted">Looking for the best available rooms…</p> : null}
         {!searching && !results.length ? <p className="muted">Pick your dates to see live availability.</p> : null}
-        <div className="site-room-grid">
-          {results.map((type) => (
-            <article className={`site-room${type.fits ? '' : ' soldout'}`} key={type.id}>
-              <div className="site-room-media" style={{ background: `linear-gradient(135deg, ${accent}22, #0f172a12)` }}>
-                <span>{type.code || type.name.slice(0, 2).toUpperCase()}</span>
-              </div>
-              <div className="site-room-body">
-                <div className="site-room-head">
-                  <h3>{type.name}</h3>
-                  <span className={`site-pill${type.available > 0 ? '' : ' out'}`}>
-                    {type.available > 0 ? `${type.available} left` : 'Sold out'}
-                  </span>
-                </div>
-                <p className="muted small">{type.description || `Sleeps up to ${type.capacity} guests.`}</p>
-                <div className="site-room-facts">
-                  <span>Sleeps {type.capacity}</span>
-                  <span>{money(type.nightly_rate, currency)} / night</span>
-                </div>
-                <div className="site-room-foot">
-                  <div>
-                    <div className="site-room-total">{money(type.total_price, currency)}</div>
-                    <div className="muted small">
-                      total for {nights} night{nights === 1 ? '' : 's'}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="site-cta"
-                    disabled={!type.fits}
-                    onClick={() => {
-                      setSelected(type);
-                      setBooking(null);
-                      setBookingError('');
-                      document.getElementById('guest-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }}
-                  >
-                    {type.fits ? 'Book now' : 'Not available'}
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
+        {groups.map((group) => (
+          <div className="site-group" key={group.key}>
+            <div className="site-group-head">
+              <h3>{group.title}</h3>
+              <p className="muted small">{group.subtitle}</p>
+            </div>
+            <div className="site-room-grid">
+              {group.items.map((type) => (
+                <RoomCard
+                  key={type.id}
+                  type={type}
+                  accent={accent}
+                  currency={currency}
+                  nights={nights}
+                  onSelect={() => {
+                    setSelected(type);
+                    setBooking(null);
+                    setBookingError('');
+                    document.getElementById('guest-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
 
       {selected ? (
@@ -347,7 +391,7 @@ export default function BookingSite() {
         <h2>Find my booking</h2>
         <form className="site-find-form" onSubmit={lookup}>
           <input
-            placeholder="Booking reference, e.g. PCH-482913"
+            placeholder="Booking reference, e.g. RG-482913"
             value={lookupCode}
             onChange={(event) => setLookupCode(event.target.value)}
           />
@@ -371,16 +415,16 @@ export default function BookingSite() {
 
       <footer className="site-footer">
         <div>
-          <strong>{property?.name || 'PCH Hotel'}</strong>
+          <strong>{property?.name || 'Richgates Apartments'}</strong>
           <div className="muted small">{property?.address}</div>
         </div>
         <div className="muted small">
           {property?.phone} · {property?.email}
           <br />
-          Check-in {property?.check_in_time || '15:00'} · Check-out {property?.check_out_time || '11:00'}
+          Check-in {property?.check_in_time || '14:00'} · Check-out {property?.check_out_time || '12:00'}
         </div>
         <div className="muted small">
-          Powered by <strong>PCH PMS</strong> · availability synced live with the front desk
+          Powered by <strong>Richgates PMS</strong> · availability synced live with the front desk
         </div>
       </footer>
     </div>
