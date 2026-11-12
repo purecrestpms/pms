@@ -1217,3 +1217,73 @@ textarea {
   .modal{box-shadow:none;max-height:none}
   body{background:#fff}
 }
+
+/* ===== Richgates dashboard ===== */
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:700;color:rgba(255,255,255,.7)}
+.dash-hero{display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between;padding:26px 28px;border-radius:18px;margin-bottom:16px;color:#fff;background:linear-gradient(115deg,#0b1f2a 0%,#123c46 55%,#1b5c58 100%);box-shadow:0 18px 40px -28px rgba(11,31,42,.9)}
+.dash-hero h2{margin:6px 0 6px;font-size:clamp(20px,2.4vw,28px);letter-spacing:-.01em}
+.dash-hero p{margin:0 0 16px;color:rgba(255,255,255,.78);font-size:13px;max-width:560px}
+.dash-hero-actions{display:flex;flex-wrap:wrap;gap:8px}
+.dash-hero-ring{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 10px}
+.dash-hero-ring-label{font-size:12px;font-weight:600;color:rgba(255,255,255,.9)}
+.dash-hero-ring-sub{font-size:11px;color:rgba(255,255,255,.62)}
+.btn.ghost-light{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);color:#fff}
+.btn.ghost-light:hover{background:rgba(255,255,255,.2)}
+.donut-track{stroke:rgba(255,255,255,.18)}
+.donut-fill{stroke:#7fe3c4;transition:stroke-dasharray .5s ease}
+.donut-value{fill:#fff;font-size:24px;font-weight:700}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.kpi{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);overflow:hidden}
+.kpi-label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:var(--muted)}
+.kpi-value{font-size:23px;font-weight:750;letter-spacing:-.02em;margin-top:4px}
+.kpi-hint{font-size:11px;color:var(--muted);margin-top:2px}
+.kpi.accent{background:linear-gradient(160deg,#eef2ff,#ffffff 60%);border-color:#c7d2fe}
+.kpi.warn{background:linear-gradient(160deg,#fffbeb,#fff 65%);border-color:#fde68a}
+.sparkline{margin-top:8px;display:block}
+.sparkline path{stroke:var(--brand)}
+.kpi.accent .sparkline path{stroke:#4338ca}
+.dash-columns{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:1080px){.dash-columns{grid-template-columns:1fr}}
+.trend-chart{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:10px;align-items:end;height:150px}
+.trend-col{display:flex;flex-direction:column;gap:6px;height:100%;justify-content:flex-end}
+.trend-bars{display:flex;gap:4px;align-items:flex-end;height:100%}
+.trend-bar{flex:1;border-radius:5px 5px 2px 2px;min-height:4px;transition:height .4s ease}
+.trend-bar.occ{background:linear-gradient(180deg,#6366f1,#4338ca)}
+.trend-bar.rev{background:linear-gradient(180deg,#34d399,#059669)}
+.trend-day{font-size:10px;color:var(--muted);text-align:center;white-space:nowrap}
+.legend-row{display:flex;gap:16px;margin-top:12px;flex-wrap:wrap}
+.legend-item{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.swatch{width:10px;height:10px;border-radius:3px;display:inline-block;background:#94a3b8}
+.swatch.occ{background:#4338ca}
+.swatch.rev{background:#059669}
+.mix-row{display:flex;flex-direction:column;gap:5px}
+.mix-head{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.mix-name{display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:13px}
+.mix-track{height:8px;border-radius:99px;background:#eef2f7;overflow:hidden}
+.mix-fill{height:100%;border-radius:99px;transition:width .4s ease}
+.hk-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.hk-tile{border-radius:12px;padding:10px 12px;border:1px solid var(--line);background:#f8fafc}
+.hk-value{font-size:20px;font-weight:750;line-height:1.1}
+.hk-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.hk-tile.ok{background:var(--ok-soft);border-color:#a7f3d0}
+.hk-tile.info{background:var(--brand-soft);border-color:#c7d2fe}
+.hk-tile.warn{background:var(--warn-soft);border-color:#fde68a}
+.hk-tile.danger{background:var(--danger-soft);border-color:#fecaca}
+.upcoming-row{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:9px 11px;cursor:pointer;font:inherit;color:inherit}
+.upcoming-row:hover{background:#eef2ff;border-color:#c7d2fe}
+.row-strong{font-weight:600}
+
+/* ===== Richgates booking website ===== */
+.site-hero{background-color:#0b1f2a}
+.site-group{margin-bottom:26px}
+.site-group-head{margin:18px 0 12px}
+.site-group-head h3{margin:0 0 4px;font-size:17px;letter-spacing:-.01em}
+.site-room-media{position:relative;height:170px;overflow:hidden;background:#0f172a14}
+.site-room-media img{width:100%;height:100%;object-fit:cover;display:block}
+.site-room-tag{position:absolute;left:10px;top:10px;background:rgba(9,20,32,.72);color:#fff;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 8px;border-radius:99px;backdrop-filter:blur(4px)}
+.site-room-amenities{font-size:11px;color:#475569;line-height:1.45;margin:6px 0 2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.room-type-card{overflow:hidden;padding:0}
+.room-type-card>*:not(.room-type-image){padding-left:14px;padding-right:14px}
+.room-type-card>*:last-child{padding-bottom:14px}
+.room-type-image{width:100%;height:104px;object-fit:cover;display:block;margin-bottom:10px}
+.form-section-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--muted);margin:14px 0 6px;padding-top:10px;border-top:1px solid var(--line)}

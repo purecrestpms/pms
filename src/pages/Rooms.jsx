@@ -105,8 +105,7 @@ export default function Rooms() {
                       <div className="small muted">
                         {room.capacity} guest(s) · {money(room.base_rate)}
                       </div>
-                    </td>
-                    <td>{room.floor}</td>
+                    </td>                    <td>{room.floor}</td>
                     <td>
                       <select
                         value={room.status}
@@ -162,10 +161,19 @@ export default function Rooms() {
       >
         <div className="grid three">
           {types.map((type) => (
-            <div className="mini-card" key={type.id}>
+            <div className="mini-card room-type-card" key={type.id}>
+              {type.image_url ? (
+                <img className="room-type-image" src={type.image_url} alt={`${type.name} at Richgates Apartments`} loading="lazy" />
+              ) : null}
               <div className="mini-head">
                 <strong>{type.name}</strong>
                 <span className="badge ok">{type.available_tonight} free</span>
+              </div>
+              <div className="row" style={{ gap: 6 }}>
+                <span className={`badge ${type.section === 'serviced' ? 'info' : 'neutral'}`}>
+                  {type.section === 'serviced' ? 'Serviced apartment' : 'Hotel room'}
+                </span>
+                {type.size_sqm ? <span className="small muted">{type.size_sqm} m²</span> : null}
               </div>
               <div className="small muted">{type.description || '—'}</div>
               <div className="small">
@@ -291,8 +299,13 @@ function TypeForm({ type, onClose, onSaved }) {
     name: type?.name || '',
     code: type?.code || '',
     capacity: type?.capacity || 2,
-    base_rate: type?.base_rate ?? 120,
-    description: type?.description || ''
+    base_rate: type?.base_rate ?? 95000,
+    description: type?.description || '',
+    section: type?.section || 'hotel',
+    bed: type?.bed || '',
+    size_sqm: type?.size_sqm || '',
+    amenities: type?.amenities || '',
+    image_url: type?.image_url || ''
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -306,7 +319,12 @@ function TypeForm({ type, onClose, onSaved }) {
         code: form.code,
         capacity: Number(form.capacity),
         base_rate: Number(form.base_rate),
-        description: form.description
+        description: form.description,
+        section: form.section,
+        bed: form.bed,
+        size_sqm: form.size_sqm === '' ? null : Number(form.size_sqm),
+        amenities: form.amenities,
+        image_url: form.image_url
       };
       if (type) await api.patch(`/room-types/${type.id}`, payload);
       else await api.post('/room-types', payload);
@@ -367,6 +385,31 @@ function TypeForm({ type, onClose, onSaved }) {
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
+        </Field>
+        <div className="grid two">
+          <Field label="Section" hint="Serviced apartments show first on the website">
+            <select value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })}>
+              <option value="serviced">Serviced apartment</option>
+              <option value="hotel">Hotel room</option>
+            </select>
+          </Field>
+          <Field label="Bed">
+            <input value={form.bed} onChange={(e) => setForm({ ...form, bed: e.target.value })} placeholder="Queen bed" />
+          </Field>
+          <Field label="Size (m²)">
+            <input
+              type="number"
+              min="0"
+              value={form.size_sqm}
+              onChange={(e) => setForm({ ...form, size_sqm: e.target.value })}
+            />
+          </Field>
+          <Field label="Photo URL" hint="e.g. /rooms/deluxe-studio.svg">
+            <input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
+          </Field>
+        </div>
+        <Field label="Amenities" hint="Comma separated, shown on the booking website">
+          <textarea rows="2" value={form.amenities} onChange={(e) => setForm({ ...form, amenities: e.target.value })} />
         </Field>
       </form>
     </Modal>

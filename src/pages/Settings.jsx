@@ -43,10 +43,15 @@ export default function Settings() {
         property_name: form.property_name,
         property_address: form.property_address,
         property_phone: form.property_phone,
+        property_email: form.property_email,
         currency: form.currency,
         check_in_time: form.check_in_time,
         check_out_time: form.check_out_time,
-        timezone: form.timezone
+        timezone: form.timezone,
+        site_headline: form.site_headline,
+        site_tagline: form.site_tagline,
+        site_about: form.site_about,
+        site_notice: form.site_notice
       });
       toast('Property settings saved');
       refresh();
@@ -99,6 +104,14 @@ export default function Settings() {
               />
             </Field>
           </div>
+          <Field label="Email">
+            <input
+              type="email"
+              value={form.property_email || ''}
+              onChange={(e) => setForm({ ...form, property_email: e.target.value })}
+              disabled={!manage}
+            />
+          </Field>
           <Field label="Address">
             <input
               value={form.property_address || ''}
@@ -107,9 +120,9 @@ export default function Settings() {
             />
           </Field>
           <div className="grid three">
-            <Field label="Currency" hint="ISO code, e.g. EUR">
+            <Field label="Currency" hint="ISO code, e.g. NGN">
               <input
-                value={form.currency || 'EUR'}
+                value={form.currency || 'NGN'}
                 onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })}
                 maxLength={3}
                 disabled={!manage}
@@ -118,7 +131,7 @@ export default function Settings() {
             <Field label="Check-in time">
               <input
                 type="time"
-                value={form.check_in_time || '15:00'}
+                value={form.check_in_time || '14:00'}
                 onChange={(e) => setForm({ ...form, check_in_time: e.target.value })}
                 disabled={!manage}
               />
@@ -126,7 +139,7 @@ export default function Settings() {
             <Field label="Check-out time">
               <input
                 type="time"
-                value={form.check_out_time || '11:00'}
+                value={form.check_out_time || '12:00'}
                 onChange={(e) => setForm({ ...form, check_out_time: e.target.value })}
                 disabled={!manage}
               />
@@ -136,6 +149,36 @@ export default function Settings() {
             <input
               value={form.timezone || ''}
               onChange={(e) => setForm({ ...form, timezone: e.target.value })}
+              disabled={!manage}
+            />
+          </Field>
+          <div className="form-section-title">Booking website</div>
+          <Field label="Headline" hint="Large heading on the public booking page">
+            <input
+              value={form.site_headline || ''}
+              onChange={(e) => setForm({ ...form, site_headline: e.target.value })}
+              disabled={!manage}
+            />
+          </Field>
+          <Field label="Tagline">
+            <input
+              value={form.site_tagline || ''}
+              onChange={(e) => setForm({ ...form, site_tagline: e.target.value })}
+              disabled={!manage}
+            />
+          </Field>
+          <Field label="About the property">
+            <textarea
+              rows="3"
+              value={form.site_about || ''}
+              onChange={(e) => setForm({ ...form, site_about: e.target.value })}
+              disabled={!manage}
+            />
+          </Field>
+          <Field label="Notice banner" hint="Optional message shown above the booking form">
+            <input
+              value={form.site_notice || ''}
+              onChange={(e) => setForm({ ...form, site_notice: e.target.value })}
               disabled={!manage}
             />
           </Field>
