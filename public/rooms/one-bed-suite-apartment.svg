@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img" aria-label="One bedroom suite apartment living area">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f2efe9"/><stop offset="1" stop-color="#dcd6cb"/></linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8f6a48"/><stop offset="1" stop-color="#6a4b31"/></linearGradient>
+    <linearGradient id="sofa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5f7a72"/><stop offset="1" stop-color="#44605a"/></linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfe6ee"/><stop offset="1" stop-color="#f2f7f4"/></linearGradient>
+    <radialGradient id="sun" cx="0.3" cy="0.3" r="0.7"><stop offset="0" stop-color="#fff5dd"/><stop offset="1" stop-color="#ffe0a8" stop-opacity="0.15"/></radialGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#wall)"/>
+  <rect y="580" width="1200" height="220" fill="url(#floor)"/>
+  <g stroke="#00000014" stroke-width="2"><path d="M0 660H1200M0 740H1200"/><path d="M240 580V800M560 580V800M880 580V800"/></g>
+  <rect y="568" width="1200" height="14" fill="#f8f4ec"/>
+  <g>
+    <rect x="80" y="120" width="440" height="300" rx="6" fill="#ffffff"/>
+    <rect x="94" y="134" width="412" height="272" fill="url(#sky)"/>
+    <rect x="94" y="134" width="412" height="272" fill="url(#sun)"/>
+    <g fill="#a9c6c9" opacity="0.65">
+      <rect x="118" y="330" width="52" height="76"/><rect x="180" y="306" width="44" height="100"/>
+      <rect x="234" y="348" width="60" height="58"/><rect x="304" y="318" width="46" height="88"/>
+      <rect x="360" y="340" width="58" height="66"/><rect x="428" y="312" width="40" height="94"/>
+    </g>
+    <rect x="296" y="134" width="10" height="272" fill="#ffffff"/>
+    <rect x="94" y="264" width="412" height="10" fill="#ffffff"/>
+    <rect x="64" y="404" width="472" height="20" rx="6" fill="#efe9dd"/>
+    <g fill="#e7e0d2"><rect x="70" y="104" width="460" height="18" rx="8"/></g>
+    <g fill="#d8d0c1"><rect x="70" y="96" width="18" height="330"/><rect x="512" y="96" width="18" height="330"/></g>
+  </g>
+  <g>
+    <rect x="640" y="430" width="440" height="120" rx="18" fill="url(#sofa)"/>
+    <rect x="652" y="380" width="416" height="90" rx="16" fill="#6d8a81"/>
+    <rect x="628" y="410" width="46" height="140" rx="16" fill="#527069"/>
+    <rect x="1046" y="410" width="46" height="140" rx="16" fill="#527069"/>
+    <rect x="668" y="398" width="92" height="70" rx="12" fill="#7d9a91"/>
+    <rect x="776" y="398" width="92" height="70" rx="12" fill="#7d9a91"/>
+    <rect x="884" y="398" width="92" height="70" rx="12" fill="#7d9a91"/>
+    <rect x="992" y="398" width="62" height="70" rx="12" fill="#7d9a91"/>
+    <rect x="660" y="470" width="400" height="26" rx="10" fill="#86a29a"/>
+    <g fill="#6b563f"><rect x="664" y="550" width="16" height="40"/><rect x="1040" y="550" width="16" height="40"/></g>
+    <rect x="700" y="540" width="90" height="12" rx="5" fill="#c9a06f"/>
+  </g>
+  <g>
+    <ellipse cx="860" cy="700" rx="230" ry="52" fill="#c9b49c" opacity="0.5"/>
+    <ellipse cx="860" cy="668" rx="120" ry="34" fill="#b98a5f"/>
+    <rect x="846" y="668" width="28" height="60" fill="#8a6444"/>
+    <ellipse cx="860" cy="726" rx="52" ry="14" fill="#8a6444"/>
+    <rect x="800" y="646" width="44" height="10" rx="5" fill="#f3ece0"/>
+    <circle cx="906" cy="646" r="9" fill="#7d9b74"/>
+  </g>
+  <g>
+    <rect x="560" y="150" width="16" height="330" fill="#6f5a44"/>
+    <path d="M540 150h56l-14-40h-28z" fill="#f6e3c4"/>
+    <circle cx="568" cy="150" r="46" fill="#ffe9bd" opacity="0.5"/>
+    <ellipse cx="568" cy="486" rx="46" ry="12" fill="#6f5a44"/>
+  </g>
+  <g>
+    <rect x="960" y="200" width="180" height="120" rx="6" fill="#e8e2d6"/>
+    <rect x="972" y="212" width="156" height="96" fill="#cfd8d2"/>
+    <path d="M1000 300l34-44 26 30 22-24 30 38z" fill="#8fae9f"/>
+    <circle cx="1080" cy="238" r="12" fill="#f2e2c4"/>
+  </g>
+  <g>
+    <rect x="220" y="596" width="60" height="80" rx="10" fill="#c9b49c"/>
+    <path d="M250 596c-28-20-36-48-30-76 26 8 36 34 30 76z" fill="#6d8c64"/>
+    <path d="M250 600c26-16 34-42 28-68-24 8-32 32-28 68z" fill="#84a47a"/>
+  </g>
+</svg>
