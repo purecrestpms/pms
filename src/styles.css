@@ -662,6 +662,11 @@ textarea {
 
 /* --------------------------------- tabs --------------------------------- */
 
+.editor-section {
+  scroll-margin-top: 16px;
+  margin-top: 18px;
+}
+
 .tabs {
   display: inline-flex;
   gap: 4px;
