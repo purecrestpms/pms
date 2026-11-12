@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Hotel property management system with front desk, housekeeping and iCal channel manager",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19"
   },
   "scripts": {
     "dev": "node server/index.js",
@@ -15,14 +15,14 @@
     "check": "npm test && npm run build"
   },
   "dependencies": {
-    "express": "^4.21.2",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0",
+    "express": "^5.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5",
     "sql.js": "^1.13.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^6.0.7"
+    "@vitejs/plugin-react": "^6.3.0",
+    "vite": "^8.3.8"
   }
 }
