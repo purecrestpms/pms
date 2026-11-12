@@ -32,10 +32,10 @@ export default function Login({ onSignedIn }) {
     <div className="login-page">
       <aside className="login-aside">
         <div className="brand" style={{ padding: 0 }}>
-          <div className="brand-mark">AJ</div>
+          <div className="brand-mark">PCH</div>
           <div>
             <div className="brand-name" style={{ fontSize: 17 }}>
-              AppJet PMS
+              PCH PMS
             </div>
             <div className="brand-sub">Hotel property management</div>
           </div>
@@ -48,11 +48,13 @@ export default function Login({ onSignedIn }) {
         <div className="feature-list">
           {[
             'Front desk check-in / check-out with room assignment and folios',
-            'Tape chart availability with automatic overbooking protection',
-            'iCal export calendar for every room, ready for Booking.com, Airbnb or Expedia',
-            'iCal import feeds that block inventory and report conflicts',
+            'Advanced availability calendar with an occupancy heat strip and filters',
+            'Guest profiles with documents, preferences and lifetime stay history',
+            'Shifts and cash-up: drawer float, variance and printable shift reports',
+            'Public booking website synced live with room availability',
+            'iCal export calendar and import feeds for Booking.com, Airbnb or Expedia',
             'Admin-created staff accounts with role-based permissions',
-            'Housekeeping board that tracks clean, dirty and out-of-order rooms'
+            'Guest folio and registration card PDFs for printing'
           ].map((item) => (
             <div className="feature" key={item}>
               <span className="feature-check">✓</span>

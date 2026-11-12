@@ -11,12 +11,17 @@ import Channels from './pages/Channels.jsx';
 import Rooms from './pages/Rooms.jsx';
 import Staff from './pages/Staff.jsx';
 import Settings from './pages/Settings.jsx';
+import Guests from './pages/Guests.jsx';
+import Shifts from './pages/Shifts.jsx';
+import BookingSite from './pages/BookingSite.jsx';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: '◧', roles: ['admin', 'manager', 'front_desk', 'housekeeping'], end: true },
   { to: '/front-desk', label: 'Front desk', icon: '🛎', roles: ['admin', 'manager', 'front_desk'] },
   { to: '/reservations', label: 'Reservations', icon: '📖', roles: ['admin', 'manager', 'front_desk'] },
+  { to: '/guests', label: 'Guest profiles', icon: '👥', roles: ['admin', 'manager', 'front_desk'] },
   { to: '/calendar', label: 'Availability chart', icon: '▦', roles: ['admin', 'manager', 'front_desk', 'housekeeping'] },
+  { to: '/shifts', label: 'Shifts & cash-up', icon: '🕒', roles: ['admin', 'manager', 'front_desk'] },
   { to: '/channels', label: 'Channel manager', icon: '⇄', roles: ['admin', 'manager', 'front_desk'] },
   { to: '/rooms', label: 'Rooms & housekeeping', icon: '🛏', roles: ['admin', 'manager', 'front_desk', 'housekeeping'] },
   { to: '/staff', label: 'Staff accounts', icon: '👤', roles: ['admin', 'manager'] },
@@ -27,7 +32,9 @@ const TITLES = {
   '/': ['Front desk dashboard', 'Arrivals, departures and the state of the house today'],
   '/front-desk': ['Front desk', 'Walk-ins, check-in, check-out and guest folios'],
   '/reservations': ['Reservations', 'Every booking with its folio, balance and channel'],
-  '/calendar': ['Availability chart', 'Room-by-room tape chart with channel blocks'],
+  '/guests': ['Guest profiles', 'Contact details, documents, preferences and stay history'],
+  '/calendar': ['Availability calendar', 'Occupancy heat strip, channel blocks and instant booking'],
+  '/shifts': ['Shifts & cash-up', 'Open a shift, take payments, count the drawer and print the report'],
   '/channels': ['Channel manager', 'iCal import feeds, export calendars and conflict detection'],
   '/rooms': ['Rooms & housekeeping', 'Inventory, rates and room status board'],
   '/staff': ['Staff accounts', 'Create and manage front desk, housekeeping and admin users'],
@@ -102,6 +109,10 @@ export default function App() {
     [user, property, currency, can, logout, refreshProperty, toasts.push]
   );
 
+  if (location.pathname === '/book') {
+    return <BookingSite />;
+  }
+
   if (loading) {
     return (
       <div className="centered-page">
@@ -124,7 +135,7 @@ export default function App() {
     );
   }
 
-  const [title, subtitle] = TITLES[location.pathname] || ['AppJet PMS', 'Hotel property management'];
+  const [title, subtitle] = TITLES[location.pathname] || ['PCH PMS', 'Hotel property management'];
   const guard = (roles, element) => (can(...roles) ? element : <Navigate to="/" replace />);
 
   return (
@@ -132,9 +143,9 @@ export default function App() {
       <div className="shell">
         <aside className="sidebar">
           <div className="brand">
-            <div className="brand-mark">AJ</div>
+            <div className="brand-mark">PCH</div>
             <div>
-              <div className="brand-name">AppJet PMS</div>
+              <div className="brand-name">PCH PMS</div>
               <div className="brand-sub">{property.property_name || 'Hotel property'}</div>
             </div>
           </div>
@@ -152,6 +163,12 @@ export default function App() {
               {item.label}
             </NavLink>
           ))}
+          <a className="nav-link" href="/book" target="_blank" rel="noreferrer">
+            <span className="nav-icon" aria-hidden="true">
+              🌐
+            </span>
+            Booking website
+          </a>
           <div className="sidebar-footer">
             <div className="user-chip">
               <span className="avatar">{initials(user.name)}</span>
@@ -185,7 +202,9 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/front-desk" element={guard(['manager', 'front_desk'], <FrontDesk />)} />
               <Route path="/reservations" element={guard(['manager', 'front_desk'], <Reservations />)} />
+              <Route path="/guests" element={guard(['manager', 'front_desk'], <Guests />)} />
               <Route path="/calendar" element={<TapeChart />} />
+              <Route path="/shifts" element={guard(['manager', 'front_desk'], <Shifts />)} />
               <Route path="/channels" element={guard(['manager', 'front_desk'], <Channels />)} />
               <Route path="/rooms" element={<Rooms />} />
               <Route path="/staff" element={guard(['manager'], <Staff />)} />
