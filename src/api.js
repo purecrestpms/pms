@@ -31,7 +31,7 @@ export const api = {
   del: (path) => request(path, { method: 'DELETE' })
 };
 
-export function money(value, currency = 'EUR') {
+export function money(value, currency = 'NGN') {
   const amount = Number(value || 0);
   try {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount);

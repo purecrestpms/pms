@@ -20,7 +20,7 @@ const NAV = [
   { to: '/front-desk', label: 'Front desk', icon: '🛎', roles: ['admin', 'manager', 'front_desk'] },
   { to: '/reservations', label: 'Reservations', icon: '📖', roles: ['admin', 'manager', 'front_desk'] },
   { to: '/guests', label: 'Guest profiles', icon: '👥', roles: ['admin', 'manager', 'front_desk'] },
-  { to: '/calendar', label: 'Availability chart', icon: '▦', roles: ['admin', 'manager', 'front_desk', 'housekeeping'] },
+  { to: '/calendar', label: 'Calendar', icon: '▦', roles: ['admin', 'manager', 'front_desk', 'housekeeping'] },
   { to: '/shifts', label: 'Shifts & cash-up', icon: '🕒', roles: ['admin', 'manager', 'front_desk'] },
   { to: '/channels', label: 'Channel manager', icon: '⇄', roles: ['admin', 'manager', 'front_desk'] },
   { to: '/rooms', label: 'Rooms & housekeeping', icon: '🛏', roles: ['admin', 'manager', 'front_desk', 'housekeeping'] },
@@ -29,14 +29,14 @@ const NAV = [
 ];
 
 const TITLES = {
-  '/': ['Front desk dashboard', 'Arrivals, departures and the state of the house today'],
+  '/': ['Richgates dashboard', 'Occupancy, revenue and the state of the house today'],
   '/front-desk': ['Front desk', 'Walk-ins, check-in, check-out and guest folios'],
   '/reservations': ['Reservations', 'Every booking with its folio, balance and channel'],
   '/guests': ['Guest profiles', 'Contact details, documents, preferences and stay history'],
-  '/calendar': ['Availability calendar', 'Occupancy heat strip, channel blocks and instant booking'],
+  '/calendar': ['Calendar', 'Occupancy heat strip, channel blocks and instant booking'],
   '/shifts': ['Shifts & cash-up', 'Open a shift, take payments, count the drawer and print the report'],
   '/channels': ['Channel manager', 'iCal import feeds, export calendars and conflict detection'],
-  '/rooms': ['Rooms & housekeeping', 'Inventory, rates and room status board'],
+  '/rooms': ['Apartments & rooms', 'Inventory, rates and room status board'],
   '/staff': ['Staff accounts', 'Create and manage front desk, housekeeping and admin users'],
   '/settings': ['Settings', 'Property details, your password and the audit trail']
 };
@@ -94,7 +94,7 @@ export default function App() {
 
   const can = useCallback((...roles) => Boolean(user) && (user.role === 'admin' || roles.includes(user.role)), [user]);
 
-  const currency = property.currency || 'EUR';
+  const currency = property.currency || 'NGN';
   const context = useMemo(
     () => ({
       user,
@@ -135,7 +135,7 @@ export default function App() {
     );
   }
 
-  const [title, subtitle] = TITLES[location.pathname] || ['PCH PMS', 'Hotel property management'];
+  const [title, subtitle] = TITLES[location.pathname] || ['Richgates PMS', 'Hotel property management'];
   const guard = (roles, element) => (can(...roles) ? element : <Navigate to="/" replace />);
 
   return (
@@ -143,10 +143,10 @@ export default function App() {
       <div className="shell">
         <aside className="sidebar">
           <div className="brand">
-            <div className="brand-mark">PCH</div>
+            <div className="brand-mark">RG</div>
             <div>
-              <div className="brand-name">PCH PMS</div>
-              <div className="brand-sub">{property.property_name || 'Hotel property'}</div>
+              <div className="brand-name">Richgates PMS</div>
+              <div className="brand-sub">{property.property_name || 'Richgates Apartments'}</div>
             </div>
           </div>
           <div className="nav-label">Operations</div>
@@ -191,9 +191,9 @@ export default function App() {
             </div>
             <div className="topbar-actions">
               <span className="badge info">
-                {property.check_in_time || '15:00'} → {property.check_out_time || '11:00'}
+                {property.check_in_time || '14:00'} → {property.check_out_time || '12:00'}
               </span>
-              <span className="badge neutral">{property.currency || 'EUR'}</span>
+              <span className="badge neutral">{property.currency || 'NGN'}</span>
             </div>
           </header>
 

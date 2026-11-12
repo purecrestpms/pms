@@ -1,22 +1,64 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, dateTime, shortDate } from '../api.js';
 import { Banner, Card, Empty, Spinner, StatusBadge, useApp } from '../components/ui.jsx';
 import ReservationForm from '../components/ReservationForm.jsx';
 import ReservationDetail from '../components/ReservationDetail.jsx';
 
-function Stat({ label, value, hint, accent = false }) {
+function Donut({ value, size = 132 }) {
+  const radius = size / 2 - 10;
+  const circumference = 2 * Math.PI * radius;
+  const filled = Math.max(0, Math.min(100, Number(value) || 0));
   return (
-    <div className={`stat${accent ? ' accent' : ''}`}>
-      <div className="label">{label}</div>
-      <div className="value">{value}</div>
-      {hint ? <div className="hint">{hint}</div> : null}
+    <svg className="donut" viewBox={`0 0 ${size} ${size}`} width={size} height={size} role="img" aria-label={`Occupancy ${filled}%`}>
+      <circle cx={size / 2} cy={size / 2} r={radius} className="donut-track" strokeWidth="12" fill="none" />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        className="donut-fill"
+        strokeWidth="12"
+        fill="none"
+        strokeLinecap="round"
+        strokeDasharray={`${(filled / 100) * circumference} ${circumference}`}
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+      />
+      <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" className="donut-value">
+        {filled}%
+      </text>
+    </svg>
+  );
+}
+
+function Kpi({ label, value, hint, tone = '', children }) {
+  return (
+    <div className={`kpi ${tone}`.trim()}>
+      <div className="kpi-label">{label}</div>
+      <div className="kpi-value">{value}</div>
+      {hint ? <div className="kpi-hint">{hint}</div> : null}
+      {children}
     </div>
   );
 }
 
+function Sparkline({ points }) {
+  const width = 120;
+  const height = 34;
+  if (!points.length) return null;
+  const max = Math.max(...points, 1);
+  const step = points.length > 1 ? width / (points.length - 1) : width;
+  const path = points
+    .map((value, index) => `${index === 0 ? 'M' : 'L'}${(index * step).toFixed(1)},${(height - (value / max) * (height - 4) - 2).toFixed(1)}`)
+    .join(' ');
+  return (
+    <svg className="sparkline" viewBox={`0 0 ${width} ${height}`} width={width} height={height} aria-hidden="true">
+      <path d={path} fill="none" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export default function Dashboard() {
-  const { money, can, toast } = useApp();
+  const { money, can, toast, property } = useApp();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
@@ -67,6 +109,10 @@ export default function Dashboard() {
     }
   };
 
+  const trend = data?.trend || [];
+  const occupancyPoints = useMemo(() => trend.map((day) => Number(day.occupancy) || 0), [trend]);
+  const revenuePoints = useMemo(() => trend.map((day) => Number(day.revenue) || 0), [trend]);
+
   if (!data) {
     return (
       <Card title="Dashboard">
@@ -77,41 +123,95 @@ export default function Dashboard() {
 
   const stats = data.stats;
   const canAct = can('manager', 'front_desk');
+  const channels = data.channels || [];
+  const upcoming = data.upcoming || [];
+  const maxChannel = Math.max(1, ...channels.map((channel) => channel.bookings));
+  const maxRevenue = Math.max(1, ...revenuePoints);
+  const housekeeping = [
+    { label: 'Clean', value: stats.clean, tone: 'ok' },
+    { label: 'Inspected', value: stats.inspected, tone: 'info' },
+    { label: 'Dirty', value: stats.dirty, tone: 'warn' },
+    { label: 'Out of order', value: stats.out_of_order, tone: 'danger' }
+  ];
 
   return (
     <>
       <Banner kind="error">{error}</Banner>
 
-      <div className="stats">
-        <Stat label="Occupancy" value={`${stats.occupancy}%`} hint={`${stats.occupied}/${stats.total_rooms} rooms`} accent />
-        <Stat label="Arrivals" value={stats.arrivals} hint="due today" />
-        <Stat label="Departures" value={stats.departures} hint="due today" />
-        <Stat label="In house" value={stats.in_house} hint="guests staying" />
-        <Stat label="Available" value={stats.available} hint={`${stats.blocked} blocked`} />
-        <Stat label="Revenue today" value={money(stats.revenue_today)} hint="posted charges" />
-      </div>
-
-      <div className="row between">
-        <div className="pill-row">
-          <span className="badge ok">Clean {stats.clean}</span>
-          <span className="badge warn">Dirty {stats.dirty}</span>
-          <span className="badge info">Inspected {stats.inspected}</span>
-          <span className="badge danger">Out of order {stats.out_of_order}</span>
-        </div>
-        <div className="row">
-          {canAct ? (
-            <button type="button" className="btn primary" onClick={() => setShowForm(true)}>
-              + New reservation
+      <section className="dash-hero">
+        <div className="dash-hero-main">
+          <div className="eyebrow">
+            {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
+          </div>
+          <h2>{property.property_name || 'Richgates Apartments'}</h2>
+          <p>
+            {stats.in_house} guest{stats.in_house === 1 ? '' : 's'} in house · {stats.available} of {stats.total_rooms} rooms
+            available · {stats.arrivals} arrival{stats.arrivals === 1 ? '' : 's'} and {stats.departures} departure
+            {stats.departures === 1 ? '' : 's'} today
+          </p>
+          <div className="dash-hero-actions">
+            {canAct ? (
+              <button type="button" className="btn primary" onClick={() => setShowForm(true)}>
+                + New reservation
+              </button>
+            ) : null}
+            <Link className="btn ghost-light" to="/calendar">
+              Open calendar
+            </Link>
+            <Link className="btn ghost-light" to="/front-desk">
+              Front desk
+            </Link>
+            <button type="button" className="btn ghost-light" onClick={load}>
+              Refresh
             </button>
-          ) : null}
-          <button type="button" className="btn" onClick={load}>
-            Refresh
-          </button>
+          </div>
         </div>
+        <div className="dash-hero-ring">
+          <Donut value={stats.occupancy} />
+          <div className="dash-hero-ring-label">Occupancy today</div>
+          <div className="dash-hero-ring-sub">
+            {stats.occupied} occupied · {stats.blocked} blocked
+          </div>
+        </div>
+      </section>
+
+      <div className="kpi-grid">
+        <Kpi label="Revenue today" value={money(stats.revenue_today)} hint={`${money(stats.revenue_week)} this week`}>
+          <Sparkline points={revenuePoints} />
+        </Kpi>
+        <Kpi label="Revenue this month" value={money(stats.revenue_month)} hint="posted charges, last 30 days" />
+        <Kpi label="Occupancy" value={`${stats.occupancy}%`} hint={`${stats.occupied} of ${stats.total_rooms} rooms sold`} tone="accent">
+          <Sparkline points={occupancyPoints} />
+        </Kpi>
+        <Kpi label="Arrivals / departures" value={`${stats.arrivals} / ${stats.departures}`} hint={`${stats.in_house} guests in house`} />
+        <Kpi label="Available tonight" value={stats.available} hint={`${stats.unassigned} unassigned bookings`} />
+        <Kpi label="Housekeeping" value={stats.dirty} hint="rooms waiting to be cleaned" tone={stats.dirty ? 'warn' : ''} />
       </div>
 
-      <div className="split">
+      <div className="dash-columns">
         <div className="stack">
+          <Card
+            title="Last 7 days"
+            subtitle="Occupancy and posted revenue"
+            actions={<Link className="btn ghost sm" to="/calendar">Calendar →</Link>}
+          >
+            <div className="trend-chart">
+              {trend.map((day) => (
+                <div key={day.date} className="trend-col" title={`${shortDate(day.date)} · ${day.occupancy}% · ${money(day.revenue)}`}>
+                  <div className="trend-bars">
+                    <div className="trend-bar occ" style={{ height: `${Math.max(4, day.occupancy)}%` }} />
+                    <div className="trend-bar rev" style={{ height: `${Math.max(3, (Number(day.revenue) / maxRevenue) * 100)}%` }} />
+                  </div>
+                  <div className="trend-day">{shortDate(day.date)}</div>
+                </div>
+              ))}
+            </div>
+            <div className="legend-row">
+              <span className="legend-item"><i className="swatch occ" /> Occupancy %</span>
+              <span className="legend-item"><i className="swatch rev" /> Revenue</span>
+            </div>
+          </Card>
+
           <Card
             title="Arrivals today"
             subtitle="Guests expected to check in"
@@ -269,6 +369,75 @@ export default function Dashboard() {
         </div>
 
         <div className="stack">
+          <Card title="Booking sources" subtitle="Last 30 days">
+            <div className="stack">
+              {channels.length ? (
+                channels.map((channel) => (
+                  <div key={channel.name} className="mix-row">
+                    <div className="mix-head">
+                      <span className="mix-name">
+                        <i className="swatch" style={{ background: channel.color }} /> {channel.name}
+                      </span>
+                      <span className="small muted">
+                        {channel.bookings} booking{channel.bookings === 1 ? '' : 's'} · {money(channel.value)}
+                      </span>
+                    </div>
+                    <div className="mix-track">
+                      <div
+                        className="mix-fill"
+                        style={{ width: `${Math.round((channel.bookings / maxChannel) * 100)}%`, background: channel.color }}
+                      />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <Empty>No bookings in the last 30 days</Empty>
+              )}
+            </div>
+          </Card>
+
+          <Card title="Housekeeping" subtitle="Room status board">
+            <div className="hk-grid">
+              {housekeeping.map((item) => (
+                <div key={item.label} className={`hk-tile ${item.tone}`}>
+                  <div className="hk-value">{item.value}</div>
+                  <div className="hk-label">{item.label}</div>
+                </div>
+              ))}
+            </div>
+            <Link className="btn sm" to="/rooms">
+              Manage rooms
+            </Link>
+          </Card>
+
+          <Card title="Next 7 days" subtitle="Upcoming arrivals" actions={<span className="badge info">{upcoming.length}</span>}>
+            <div className="stack">
+              {upcoming.length ? (
+                upcoming.map((reservation) => (
+                  <button
+                    key={reservation.id}
+                    type="button"
+                    className="upcoming-row"
+                    onClick={() => setDetailId(reservation.id)}
+                  >
+                    <div>
+                      <div className="row-strong">{reservation.guest_name}</div>
+                      <div className="small muted">
+                        {reservation.room_type_name} · {reservation.nights}n
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="small">{shortDate(reservation.check_in)}</div>
+                      <div className="small muted">{reservation.room_number || 'unassigned'}</div>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <Empty>Nothing booked for the coming week</Empty>
+              )}
+            </div>
+          </Card>
+
           <Card
             title="Channel manager"
             subtitle="iCal feeds"
@@ -299,26 +468,6 @@ export default function Dashboard() {
               )}
               <Link className="btn sm" to="/channels">
                 Open channel manager
-              </Link>
-            </div>
-          </Card>
-
-          <Card title="Housekeeping" subtitle="Room status board">
-            <div className="stack">
-              <div className="row between">
-                <span>Dirty rooms</span>
-                <span className="badge warn">{stats.dirty}</span>
-              </div>
-              <div className="row between">
-                <span>Clean & ready</span>
-                <span className="badge ok">{stats.clean + stats.inspected}</span>
-              </div>
-              <div className="row between">
-                <span>Out of order</span>
-                <span className="badge danger">{stats.out_of_order}</span>
-              </div>
-              <Link className="btn sm" to="/rooms">
-                Manage rooms
               </Link>
             </div>
           </Card>
