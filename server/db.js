@@ -334,6 +334,135 @@ export function closeDb() {
 
 /* ------------------------------ seed data ------------------------------ */
 
+const RICHGATES_ROOM_TYPES = [
+  {
+    name: 'Deluxe Studio with Kitchenette',
+    code: 'RM1',
+    section: 'serviced',
+    capacity: 2,
+    baseRate: 95000,
+    bed: 'Queen bed',
+    size: 34,
+    amenities:
+      'Private kitchenette, en-suite bathroom, air conditioning, smart TV, free Wi-Fi, workspace, daily housekeeping',
+    image: '/rooms/deluxe-studio-kitchenette.svg',
+    description: 'Serviced studio apartment with a full kitchenette, dining nook and city-facing windows.'
+  },
+  {
+    name: 'One Bedroom Suite Apartment',
+    code: 'RM2',
+    section: 'serviced',
+    capacity: 3,
+    baseRate: 145000,
+    bed: 'King bed + sofa bed',
+    size: 52,
+    amenities:
+      'Full kitchen, separate living room, dining table, en-suite bathroom, air conditioning, smart TV, free Wi-Fi, washing machine',
+    image: '/rooms/one-bed-suite-apartment.svg',
+    description: 'Serviced one bedroom apartment with a separate living room, full kitchen and dining area.'
+  },
+  {
+    name: 'Standard Studio with Kitchenette',
+    code: 'RM3',
+    section: 'serviced',
+    capacity: 2,
+    baseRate: 75000,
+    bed: 'Double bed',
+    size: 28,
+    amenities:
+      'Kitchenette, en-suite bathroom, air conditioning, smart TV, free Wi-Fi, daily housekeeping',
+    image: '/rooms/standard-studio-kitchenette.svg',
+    description: 'Compact serviced studio with a kitchenette, ideal for longer stays in Lekki.'
+  },
+  {
+    name: 'Deluxe Studio',
+    code: 'RM4',
+    section: 'hotel',
+    capacity: 2,
+    baseRate: 85000,
+    bed: 'King bed',
+    size: 32,
+    amenities: 'En-suite bathroom, air conditioning, smart TV, free Wi-Fi, work desk, tea and coffee',
+    image: '/rooms/deluxe-studio.svg',
+    description: 'Spacious hotel studio with a king bed, lounge chair and writing desk.'
+  },
+  {
+    name: 'Standard Studio',
+    code: 'RM5',
+    section: 'hotel',
+    capacity: 2,
+    baseRate: 65000,
+    bed: 'Queen bed',
+    size: 24,
+    amenities: 'En-suite bathroom, air conditioning, smart TV, free Wi-Fi, wardrobe',
+    image: '/rooms/standard-studio.svg',
+    description: 'Comfortable hotel studio with a queen bed and all the essentials for a short stay.'
+  },
+  {
+    name: 'One Bedroom Suite',
+    code: 'RM6',
+    section: 'hotel',
+    capacity: 3,
+    baseRate: 120000,
+    bed: 'King bed + sofa bed',
+    size: 45,
+    amenities:
+      'Separate living area, en-suite bathroom, air conditioning, smart TV, free Wi-Fi, sofa bed',
+    image: '/rooms/one-bed-suite.svg',
+    description: 'Hotel suite with a separate living area, king bed and sofa bed for a third guest.'
+  }
+];
+
+const RICHGATES_ROOMS = [
+  ['RM-1', 'RM1', 1, 'clean'],
+  ['RM-2', 'RM2', 1, 'clean'],
+  ['RM-3', 'RM3', 1, 'clean'],
+  ['RM-4', 'RM4', 2, 'clean'],
+  ['RM-5', 'RM5', 2, 'clean'],
+  ['RM-6', 'RM5', 2, 'dirty'],
+  ['RM-7', 'RM5', 2, 'clean'],
+  ['RM-8', 'RM6', 2, 'clean']
+];
+
+function insertInventory() {
+  for (const type of RICHGATES_ROOM_TYPES) {
+    run(
+      `insert into room_types (name, code, capacity, base_rate, description, section, bed, size_sqm, amenities, image_url)
+       values (?,?,?,?,?,?,?,?,?,?)`,
+      [
+        type.name,
+        type.code,
+        type.capacity,
+        type.baseRate,
+        type.description,
+        type.section,
+        type.bed,
+        type.size,
+        type.amenities,
+        type.image
+      ]
+    );
+  }
+  const typeIdByCode = {};
+  for (const row of all('select id, code from room_types')) typeIdByCode[row.code] = row.id;
+  for (const [number, typeCode, floor, status] of RICHGATES_ROOMS) {
+    run('insert into rooms (number, room_type_id, floor, status, ical_token, active) values (?,?,?,?,?,1)', [
+      number,
+      typeIdByCode[typeCode],
+      floor,
+      status,
+      randomToken(16)
+    ]);
+  }
+}
+
+function rebuildInventory() {
+  for (const table of ['payments', 'charges', 'reservations', 'calendar_blocks', 'ical_feeds', 'rooms', 'room_types']) {
+    exec(`delete from ${table}`);
+  }
+  insertInventory();
+}
+
 function seedIfEmpty() {
   const existing = get('select count(*) as c from users');
   if (existing && existing.c > 0) return;
@@ -342,19 +471,19 @@ function seedIfEmpty() {
   const today = todayISO();
 
   const settings = {
-    property_name: 'PCH Hotel',
-    property_address: '12 Marina Parade, Lisbon, Portugal',
-    property_phone: '+351 210 000 000',
-    property_email: 'stay@pchhotel.example',
-    currency: 'EUR',
-    check_in_time: '15:00',
-    check_out_time: '11:00',
-    timezone: 'Europe/Lisbon',
-    site_headline: 'Boutique stays, booked direct',
-    site_tagline: 'Best available rate, instant confirmation and no booking fees.',
+    property_name: 'Richgates Apartments',
+    property_address: '18 Admiralty Way, Lekki Phase 1, Lagos, Nigeria',
+    property_phone: '+234 803 000 0000',
+    property_email: 'stay@richgatesapartments.example',
+    currency: 'NGN',
+    check_in_time: '14:00',
+    check_out_time: '12:00',
+    timezone: 'Africa/Lagos',
+    site_headline: 'Serviced apartments and hotel rooms in Lekki',
+    site_tagline: 'Book direct for the best rate, instant confirmation and no booking fees.',
     site_about:
-      'PCH Hotel sits two minutes from the marina, with 11 individually styled rooms, a rooftop terrace and breakfast served until noon. Book direct for the lowest rate and a free upgrade when available.',
-    site_notice: 'Free cancellation up to 48 hours before arrival.',
+      'Richgates Apartments offers three serviced apartments with private kitchenettes and five hotel rooms in Lekki Phase 1, Lagos. Every stay includes fast Wi-Fi, 24-hour power and security, daily housekeeping and secure parking.',
+    site_notice: 'Free cancellation up to 48 hours before arrival. Check-in from 14:00.',
     site_accent: '#0f766e'
   };
   for (const [key, value] of Object.entries(settings)) {
@@ -382,7 +511,7 @@ function seedIfEmpty() {
 
   const channels = [
     ['Direct', 'direct', '#0ea5e9', 0],
-    ['PCH Website', 'website', '#0f766e', 0],
+    ['Richgates Website', 'website', '#0f766e', 0],
     ['Booking.com', 'ota', '#1d4ed8', 15],
     ['Airbnb', 'ota', '#e11d48', 3],
     ['Expedia', 'ota', '#f59e0b', 18],
@@ -392,35 +521,7 @@ function seedIfEmpty() {
     run('insert into channels (name, kind, color, commission, active) values (?,?,?,?,1)', [name, kind, color, commission]);
   }
 
-  const roomTypes = [
-    ['Standard Queen', 'STDQ', 2, 120, 'Queen bed, city view, 22 m²'],
-    ['Deluxe King', 'DLXK', 2, 165, 'King bed, balcony, 30 m²'],
-    ['Twin Room', 'TWIN', 2, 110, 'Two single beds, 20 m²'],
-    ['Family Suite', 'FAML', 4, 240, 'Two bedrooms, living area, 45 m²']
-  ];
-  for (const [name, codeValue, capacity, baseRate, description] of roomTypes) {
-    run('insert into room_types (name, code, capacity, base_rate, description) values (?,?,?,?,?)', [
-      name,
-      codeValue,
-      capacity,
-      baseRate,
-      description
-    ]);
-  }
-
-  const rooms = [
-    ['101', 1, 1], ['102', 1, 1], ['103', 1, 1], ['104', 3, 1], ['105', 3, 1], ['106', 1, 1],
-    ['201', 2, 2], ['202', 2, 2], ['203', 2, 2], ['204', 4, 2], ['205', 4, 2]
-  ];
-  for (const [number, typeId, floor] of rooms) {
-    run('insert into rooms (number, room_type_id, floor, status, ical_token, active) values (?,?,?,?,?,1)', [
-      number,
-      typeId,
-      floor,
-      number === '106' ? 'dirty' : 'clean',
-      randomToken(16)
-    ]);
-  }
+  insertInventory();
 
   const roomByNumber = {};
   for (const room of all('select id, number from rooms')) roomByNumber[room.number] = room.id;
@@ -484,43 +585,43 @@ function seedIfEmpty() {
     return id;
   };
 
-  const g1 = guest('Emma', 'Schneider', 'emma.schneider@example.com', '+49 151 2233445', 'Germany');
-  const g2 = guest('Lucas', 'Almeida', 'lucas.almeida@example.com', '+351 912 334 556', 'Portugal');
-  const g3 = guest('Hannah', 'O\u2019Neill', 'hannah.oneill@example.com', '+353 87 223 1188', 'Ireland');
-  const g4 = guest('Yuki', 'Tanaka', 'yuki.tanaka@example.com', '+81 90 2234 8890', 'Japan');
-  const g5 = guest('Marco', 'Rossi', 'marco.rossi@example.com', '+39 333 887 2211', 'Italy');
-  const g6 = guest('Ana', 'Costa', 'ana.costa@example.com', '+351 934 771 220', 'Portugal');
+  const g1 = guest('Chidinma', 'Okafor', 'chidinma.okafor@example.com', '+234 803 221 4455', 'Nigeria');
+  const g2 = guest('Tunde', 'Bakare', 'tunde.bakare@example.com', '+234 806 771 2093', 'Nigeria');
+  const g3 = guest('Amaka', 'Nwosu', 'amaka.nwosu@example.com', '+234 810 334 8821', 'Nigeria');
+  const g4 = guest('David', 'Mensah', 'david.mensah@example.com', '+233 24 771 3388', 'Ghana');
+  const g5 = guest('Ibrahim', 'Sule', 'ibrahim.sule@example.com', '+234 802 998 7712', 'Nigeria');
+  const g6 = guest('Funke', 'Adeyemi', 'funke.adeyemi@example.com', '+234 805 442 1180', 'Nigeria');
 
   run(
-    `update guests set vip = 1, company = 'Nordwind Travel', address = 'Hafenstrasse 22', city = 'Hamburg',
-      id_type = 'Passport', id_number = 'DE-C23X9911', birth_date = '1984-06-12', marketing_opt_in = 1,
+    `update guests set vip = 1, company = 'Zenith Energy', address = '4B Admiralty Way', city = 'Lekki, Lagos',
+      id_type = 'Passport', id_number = 'NG-A23X9911', birth_date = '1984-06-12', marketing_opt_in = 1,
       preferences = 'High floor, extra pillows, late checkout' where id = ?`,
     [g1]
   );
   run(
-    `update guests set company = 'Lisboa Tech', address = 'Rua do Alecrim 4', city = 'Lisbon', id_type = 'ID card',
-      id_number = 'PT-1188223', birth_date = '1990-02-27' where id = ?`,
+    `update guests set company = 'Bakare & Co', address = '12 Gana Street', city = 'Abuja', id_type = 'ID card',
+      id_number = 'NG-1188223', birth_date = '1990-02-27' where id = ?`,
     [g2]
   );
   run(
-    `update guests set vip = 1, company = 'Kyoto Imports', address = '3-14 Kawaramachi', city = 'Kyoto',
-      id_type = 'Passport', id_number = 'JP-TK7781', birth_date = '1979-11-03',
-      preferences = 'Twin beds, quiet room, green tea' where id = ?`,
+    `update guests set vip = 1, company = 'Mensah Imports', address = '18 Oxford Street', city = 'Accra',
+      id_type = 'Passport', id_number = 'GH-TK7781', birth_date = '1979-11-03',
+      preferences = 'Quiet room, sparkling water, late checkout' where id = ?`,
     [g4]
   );
   run("update guests set preferences = 'Cot for a toddler, early breakfast' where id = ?", [g6]);
 
-  reservation({ guestId: g1, typeId: 1, roomNumber: '101', from: -1, to: 2, status: 'checked_in', channelId: 2, ref: 'BK-88213', rate: 120 });
-  reservation({ guestId: g2, typeId: 2, roomNumber: '201', from: 0, to: 3, status: 'confirmed', channelId: 1, ref: null, rate: 165 });
-  reservation({ guestId: g3, typeId: 3, roomNumber: '104', from: 0, to: 1, status: 'confirmed', channelId: 3, ref: 'ABNB-4471', rate: 110 });
-  reservation({ guestId: g4, typeId: 2, roomNumber: '202', from: -2, to: 0, status: 'checked_in', channelId: 4, ref: 'EXP-99021', rate: 165, notes: 'Late checkout requested' });
-  reservation({ guestId: g5, typeId: 1, roomNumber: '103', from: 2, to: 5, status: 'confirmed', channelId: 2, ref: 'BK-90114', rate: 125 });
-  reservation({ guestId: g6, typeId: 2, roomNumber: null, from: 1, to: 4, status: 'pending', channelId: 3, ref: 'ABNB-4502', rate: 158 });
-  reservation({ guestId: g1, typeId: 4, roomNumber: '204', from: 5, to: 8, status: 'confirmed', channelId: 1, ref: null, rate: 240, adults: 2, children: 2 });
+  reservation({ guestId: g1, typeId: 1, roomNumber: 'RM-1', from: -1, to: 2, status: 'checked_in', channelId: 2, ref: 'RG-88213', rate: 95000 });
+  reservation({ guestId: g2, typeId: 2, roomNumber: 'RM-2', from: 0, to: 3, status: 'confirmed', channelId: 1, ref: null, rate: 145000 });
+  reservation({ guestId: g3, typeId: 4, roomNumber: 'RM-4', from: 0, to: 1, status: 'confirmed', channelId: 3, ref: 'ABNB-4471', rate: 85000 });
+  reservation({ guestId: g4, typeId: 6, roomNumber: 'RM-8', from: -2, to: 0, status: 'checked_in', channelId: 4, ref: 'EXP-99021', rate: 120000, notes: 'Late checkout requested' });
+  reservation({ guestId: g5, typeId: 3, roomNumber: 'RM-3', from: 2, to: 5, status: 'confirmed', channelId: 2, ref: 'RG-90114', rate: 75000 });
+  reservation({ guestId: g6, typeId: 2, roomNumber: null, from: 1, to: 4, status: 'pending', channelId: 3, ref: 'ABNB-4502', rate: 138000 });
+  reservation({ guestId: g1, typeId: 5, roomNumber: 'RM-7', from: 5, to: 8, status: 'confirmed', channelId: 1, ref: null, rate: 65000 });
 
   const nowIso = new Date().toISOString();
   run('insert into calendar_blocks (room_id, start_date, end_date, source, channel_id, feed_id, external_uid, summary, created_at) values (?,?,?,?,?,?,?,?,?)', [
-    roomByNumber['205'],
+    roomByNumber['RM-6'],
     addDays(today, 1),
     addDays(today, 4),
     'ical',
@@ -531,18 +632,18 @@ function seedIfEmpty() {
     nowIso
   ]);
   run('insert into calendar_blocks (room_id, start_date, end_date, source, channel_id, feed_id, external_uid, summary, created_at) values (?,?,?,?,?,?,?,?,?)', [
-    roomByNumber['106'],
+    roomByNumber['RM-5'],
     today,
     addDays(today, 2),
     'maintenance',
     null,
     null,
     null,
-    'Bathroom maintenance',
+    'Air-conditioner servicing',
     nowIso
   ]);
 
-  run('update rooms set status = ? where number = ?', ['out_of_order', '106']);
+  run('update rooms set status = ? where number = ?', ['out_of_order', 'RM-5']);
 
   const shiftOpenAt = new Date(Date.now() - 26 * 3600 * 1000).toISOString();
   const shiftCloseAt = new Date(Date.now() - 14 * 3600 * 1000).toISOString();
@@ -560,9 +661,9 @@ function seedIfEmpty() {
   ]);
 
   const activity = [
-    [1, 'setup', 'Property created with 11 rooms and 4 room types'],
-    [2, 'check_in', 'Checked in Emma Schneider to room 101'],
-    [1, 'channel', 'Connected Booking.com iCal feed for room 205']
+    [1, 'setup', 'Property created with 8 rooms across serviced apartments and hotel rooms'],
+    [2, 'check_in', 'Checked in Chidinma Okafor to RM-1'],
+    [1, 'channel', 'Connected Booking.com iCal feed for RM-6']
   ];
   for (const [userId, action, detail] of activity) {
     run('insert into activity_log (user_id, action, detail, created_at) values (?,?,?,?)', [userId, action, detail, nowIso]);
@@ -572,6 +673,14 @@ function seedIfEmpty() {
 }
 
 /* ------------------------------ migrations ------------------------------ */
+
+const ROOM_TYPE_EXTRA_COLUMNS = [
+  ['section', "TEXT NOT NULL DEFAULT 'hotel'"],
+  ['bed', 'TEXT'],
+  ['size_sqm', 'INTEGER'],
+  ['amenities', 'TEXT'],
+  ['image_url', 'TEXT']
+];
 
 const GUEST_EXTRA_COLUMNS = [
   ['vip', 'INTEGER NOT NULL DEFAULT 0'],
@@ -596,28 +705,62 @@ function migrate() {
   const paymentColumns = new Set(all('PRAGMA table_info(payments)').map((row) => row.name));
   if (!paymentColumns.has('shift_id')) exec('ALTER TABLE payments ADD COLUMN shift_id INTEGER');
 
+  const typeColumns = new Set(all('PRAGMA table_info(room_types)').map((row) => row.name));
+  for (const [name, definition] of ROOM_TYPE_EXTRA_COLUMNS) {
+    if (!typeColumns.has(name)) exec(`ALTER TABLE room_types ADD COLUMN ${name} ${definition}`);
+  }
+
+  run("update settings set value = 'Richgates Apartments' where key = 'property_name'");
+  run("update settings set value = 'NGN' where key = 'currency' and value in ('EUR', 'USD', 'GBP')");
+  run("update settings set value = 'Africa/Lagos' where key = 'timezone' and value in ('Europe/Lisbon', 'UTC')");
+  run("update settings set value = '14:00' where key = 'check_in_time' and value = '15:00'");
+  run("update settings set value = '12:00' where key = 'check_out_time' and value = '11:00'");
   run(
-    "update settings set value = 'PCH Hotel' where key = 'property_name' and value in ('Harbor View Hotel', 'AppJet Hotel')"
+    "update settings set value = '18 Admiralty Way, Lekki Phase 1, Lagos, Nigeria' where key = 'property_address' and value like '%Lisbon%'"
+  );
+  run("update settings set value = '+234 803 000 0000' where key = 'property_phone' and value like '+351%'");
+  run(
+    "update settings set value = 'stay@richgatesapartments.example' where key = 'property_email' and value like '%pchhotel%'"
+  );
+  run(
+    "update settings set value = 'Serviced apartments and hotel rooms in Lekki' where key = 'site_headline' and value like 'Boutique stays%'"
+  );
+  run(
+    "update settings set value = 'Book direct for the best rate, instant confirmation and no booking fees.' where key = 'site_tagline' and value like 'Best available rate%'"
+  );
+  run(
+    "update settings set value = 'Richgates Apartments offers three serviced apartments with private kitchenettes and five hotel rooms in Lekki Phase 1, Lagos. Every stay includes fast Wi-Fi, 24-hour power and security, daily housekeeping and secure parking.' where key = 'site_about' and (value like '%PCH Hotel%' or value like '%marina%')"
+  );
+  run(
+    "update settings set value = 'Free cancellation up to 48 hours before arrival. Check-in from 14:00.' where key = 'site_notice' and value like 'Free cancellation%'"
   );
 
   const siteDefaults = {
-    site_headline: 'Boutique stays, booked direct',
-    site_tagline: 'Best available rate, instant confirmation and no booking fees.',
+    site_headline: 'Serviced apartments and hotel rooms in Lekki',
+    site_tagline: 'Book direct for the best rate, instant confirmation and no booking fees.',
     site_about:
-      'PCH Hotel sits two minutes from the marina, with 11 individually styled rooms, a rooftop terrace and breakfast served until noon. Book direct for the lowest rate and a free upgrade when available.',
-    site_notice: 'Free cancellation up to 48 hours before arrival.',
+      'Richgates Apartments offers three serviced apartments with private kitchenettes and five hotel rooms in Lekki Phase 1, Lagos. Every stay includes fast Wi-Fi, 24-hour power and security, daily housekeeping and secure parking.',
+    site_notice: 'Free cancellation up to 48 hours before arrival. Check-in from 14:00.',
     site_accent: '#0f766e'
   };
   for (const [key, value] of Object.entries(siteDefaults)) {
     run('insert or ignore into settings (key, value) values (?, ?)', [key, value]);
   }
 
+  run("update channels set name = 'Richgates Website' where kind = 'website' and name like 'PCH%'");
   run(
     `insert into channels (name, kind, color, commission, active)
-     select 'PCH Website', 'website', '#0f766e', 0, 1
+     select 'Richgates Website', 'website', '#0f766e', 0, 1
      where not exists (select 1 from channels where kind = 'website')`
   );
 
-  run("update users set name = 'PCH Admin' where email like 'admin@%' and name in ('Hotel Admin', 'AppJet Admin')");
+  run("update users set name = 'Richgates Admin' where email like 'admin@%' and name in ('PCH Admin', 'Hotel Admin', 'AppJet Admin')");
+
+  const legacyRooms = get("select count(*) as c from rooms where number in ('101', '102', '201', '205')");
+  const newRooms = get("select count(*) as c from rooms where number = 'RM-1'");
+  if (legacyRooms && legacyRooms.c > 0 && (!newRooms || newRooms.c === 0)) {
+    rebuildInventory();
+    console.log('[db] upgraded legacy inventory to the Richgates Apartments rooms');
+  }
   exec('PRAGMA foreign_keys = ON');
 }
