@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img" aria-label="One bedroom suite">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef1f4"/><stop offset="1" stop-color="#d3dae1"/></linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#93714f"/><stop offset="1" stop-color="#6a5038"/></linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b7d4e4"/><stop offset="1" stop-color="#eaf3f8"/></linearGradient>
+    <linearGradient id="bed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fcfbf7"/><stop offset="1" stop-color="#e3e4e4"/></linearGradient>
+    <linearGradient id="sofa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f6b82"/><stop offset="1" stop-color="#3a536a"/></linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#wall)"/>
+  <rect y="570" width="1200" height="230" fill="url(#floor)"/>
+  <g stroke="#00000012" stroke-width="2"><path d="M0 650H1200M0 730H1200"/><path d="M220 570V800M460 570V800M700 570V800M940 570V800"/></g>
+  <rect y="558" width="1200" height="14" fill="#f7f8f8"/>
+  <g>
+    <rect x="250" y="110" width="380" height="300" rx="6" fill="#ffffff"/>
+    <rect x="264" y="124" width="352" height="272" fill="url(#sky)"/>
+    <g fill="#9dbecd" opacity="0.7">
+      <rect x="286" y="330" width="46" height="86"/><rect x="340" y="306" width="40" height="110"/>
+      <rect x="388" y="342" width="52" height="74"/><rect x="448" y="312" width="42" height="104"/>
+      <rect x="498" y="348" width="54" height="68"/><rect x="560" y="320" width="38" height="96"/>
+    </g>
+    <rect x="436" y="124" width="9" height="272" fill="#ffffff"/>
+    <rect x="264" y="266" width="352" height="9" fill="#ffffff"/>
+    <rect x="236" y="98" width="408" height="16" rx="8" fill="#e8eaec"/>
+    <rect x="236" y="410" width="408" height="12" rx="5" fill="#e8eaec"/>
+  </g>
+  <g>
+    <rect x="100" y="316" width="300" height="180" rx="14" fill="#9aa9b6"/>
+    <rect x="92" y="458" width="316" height="26" rx="8" fill="#7b6a55"/>
+    <rect x="84" y="484" width="332" height="96" rx="16" fill="url(#bed)"/>
+    <rect x="84" y="518" width="332" height="60" rx="12" fill="#c9d1d8"/>
+    <rect x="84" y="480" width="332" height="16" rx="8" fill="#fdfcf8"/>
+    <rect x="114" y="410" width="110" height="62" rx="12" fill="#ffffff"/>
+    <rect x="240" y="410" width="110" height="62" rx="12" fill="#ffffff"/>
+    <rect x="92" y="580" width="16" height="32" fill="#5f4b38"/>
+    <rect x="392" y="580" width="16" height="32" fill="#5f4b38"/>
+  </g>
+  <g>
+    <rect x="640" y="440" width="430" height="116" rx="18" fill="url(#sofa)"/>
+    <rect x="652" y="392" width="406" height="86" rx="16" fill="#5d7a91"/>
+    <rect x="628" y="420" width="44" height="136" rx="16" fill="#3f5a70"/>
+    <rect x="1038" y="420" width="44" height="136" rx="16" fill="#3f5a70"/>
+    <rect x="668" y="408" width="88" height="66" rx="12" fill="#6d8a9f"/>
+    <rect x="772" y="408" width="88" height="66" rx="12" fill="#6d8a9f"/>
+    <rect x="876" y="408" width="88" height="66" rx="12" fill="#6d8a9f"/>
+    <rect x="980" y="408" width="62" height="66" rx="12" fill="#6d8a9f"/>
+    <g fill="#5a4732"><rect x="664" y="556" width="14" height="38"/><rect x="1032" y="556" width="14" height="38"/></g>
+    <ellipse cx="850" cy="676" rx="150" ry="34" fill="#8a6746"/>
+    <rect x="840" y="676" width="20" height="52" fill="#6f5238"/>
+    <ellipse cx="850" cy="722" rx="40" ry="10" fill="#6f5238"/>
+    <rect x="792" y="656" width="38" height="10" rx="5" fill="#f2f4f4"/>
+    <circle cx="880" cy="656" r="8" fill="#7d9b74"/>
+  </g>
+  <g>
+    <rect x="700" y="190" width="220" height="130" rx="6" fill="#dfe3e6"/>
+    <rect x="712" y="202" width="196" height="106" fill="#8ea3b2"/>
+    <path d="M740 296l36-46 28 32 24-26 32 40z" fill="#c3d3dd"/>
+    <circle cx="840" cy="228" r="13" fill="#eaf1f4"/>
+  </g>
+  <g>
+    <rect x="540" y="200" width="12" height="320" fill="#5f5445"/>
+    <path d="M522 200h48l-12-36h-24z" fill="#f6e7cc"/>
+    <circle cx="546" cy="200" r="40" fill="#ffe9bd" opacity="0.45"/>
+    <ellipse cx="546" cy="522" rx="40" ry="10" fill="#5f5445"/>
+  </g>
+  <g>
+    <rect x="480" y="600" width="54" height="68" rx="9" fill="#b9b3a4"/>
+    <path d="M507 600c-24-16-30-40-25-62 22 6 30 28 25 62z" fill="#7e9b74"/>
+    <path d="M507 604c22-12 29-34 24-56-20 6-28 26-24 56z" fill="#95b189"/>
+  </g>
+</svg>
