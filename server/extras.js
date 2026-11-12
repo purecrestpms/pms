@@ -407,7 +407,7 @@ export function registerExtras(app) {
   app.get('/api/public/site', (req, res) => {
     const site = readSite();
     res.json({
-      brand: site.brand_name,
+      brand_name: site.brand_name,
       hero_image: site.site_hero_image,
       gallery: site.gallery,
       facilities: site.facilities,
